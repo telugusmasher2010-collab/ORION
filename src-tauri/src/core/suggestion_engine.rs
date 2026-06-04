@@ -139,7 +139,7 @@ impl SuggestionEngine {
 
     pub fn suggest_break(&self, _reason: &str) -> serde_json::Value {
         let break_options = [
-            "\u2615 Quick coffee break?",
+            "\u{2615} Quick coffee break?",
             "\u{1f6b6} 5-minute stretch break?",
             "\u{1f4a7} Get some water?",
             "\u{1f440} Rest your eyes for a minute?",
