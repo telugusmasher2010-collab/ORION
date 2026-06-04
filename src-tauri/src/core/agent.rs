@@ -194,7 +194,7 @@ fn run_bridge(url: &str, headers: HashMap<String, String>, body: Value) -> Resul
     let input = serde_json::to_string(&req).map_err(|e| format!("JSON: {}", e))?;
 
     let mut child = Command::new(constants::NODE_PATH)
-        .arg(constants::BRIDGE_PATH)
+        .arg(constants::bridge_path())
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

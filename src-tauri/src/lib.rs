@@ -84,19 +84,22 @@ fn close_window(app: tauri::AppHandle) {
 // CHAT — AI Brain powered (Groq / OpenRouter / Gemini streaming)
 // ========================================
 
-/// Try to read settings.json from multiple paths — used by both chat command and get_settings
-fn read_settings_file() -> (serde_json::Value, bool) {
-    let settings_path = std::env::current_exe()
-        .ok()
-        .and_then(|p| p.parent().map(|pp| pp.join("../../../CONFIG/settings.json")))
-        .unwrap_or_else(|| std::path::PathBuf::from("../CONFIG/settings.json"));
+static RESOURCE_DIR: OnceLock<std::path::PathBuf> = OnceLock::new();
 
-    let paths = [
+fn read_settings_file() -> (serde_json::Value, bool) {
+    let mut paths = vec![
         std::path::PathBuf::from("../CONFIG/settings.json"),
         std::path::PathBuf::from("../../CONFIG/settings.json"),
         std::path::PathBuf::from("../../../CONFIG/settings.json"),
-        settings_path,
     ];
+    if let Some(rd) = RESOURCE_DIR.get() {
+        paths.push(rd.join("CONFIG/settings.json"));
+    }
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(parent) = exe.parent() {
+            paths.push(parent.join("CONFIG/settings.json"));
+        }
+    }
     for path in &paths {
         if let Ok(content) = std::fs::read_to_string(path) {
             if let Ok(val) = serde_json::from_str(&content) {
@@ -136,7 +139,10 @@ fn chat(app: tauri::AppHandle, message: String, session_id: i64) -> Result<Strin
     let response = match get_registry().lock().unwrap().execute_task(&message, &settings) {
         Ok(Some((_info, agent_resp))) => {
             // Agent handled it — save files if any were created
-            let workspace = std::path::PathBuf::from("../PROJECTS");
+            let workspace = RESOURCE_DIR.get()
+                .cloned()
+                .unwrap_or_else(|| std::path::PathBuf::from(".."))
+                .join("PROJECTS");
             for file_path in &agent_resp.files_created {
                 // Find the file content in the response for saving
                 let files = core::agent::extract_files_from_response(&agent_resp.response);
@@ -610,11 +616,19 @@ pub fn run() {
                 eprintln!("[ORION] Database already initialized");
             }
 
-            // Initialize personality engine from CONFIG/modes.json + prompt files
-            let orion_root = app.path().resource_dir()
-                .map(|r| r.join("../../../"))
-                .unwrap_or_else(|_| std::path::PathBuf::from(".."));
-            let personality = core::personality_engine::PersonalityEngine::new(&orion_root);
+            let resource_dir = app.path().resource_dir()
+                .unwrap_or_else(|_| std::path::PathBuf::from("."));
+
+            // Store resource dir for settings file resolution
+            let _ = RESOURCE_DIR.set(resource_dir.clone());
+
+            // Initialize bridge path so Node.js child processes can find http-bridge.js
+            core::constants::set_bridge_path(
+                resource_dir.join("CORE/http-bridge.js").to_string_lossy().to_string()
+            );
+
+            // Initialize personality engine from resource files
+            let personality = core::personality_engine::PersonalityEngine::new(&resource_dir);
             if PERSONALITY.set(Mutex::new(personality)).is_err() {
                 eprintln!("[ORION] Personality engine already initialized");
             }
