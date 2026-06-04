@@ -16,6 +16,19 @@ async function tauriInvoke(cmd, args = {}) {
         return await window.__TAURI__.core.invoke(cmd, args);
     } catch (e) {
         console.warn(`[ORION Bridge] Tauri command '${cmd}' failed:`, e);
+        if (window.showError) {
+            window.showError(`IPC Error: ${cmd} — ${typeof e === 'string' ? e : (e.message || 'Unknown error')}`);
+        }
+        return null;
+    }
+}
+
+// Quick IPC health check
+async function ping() {
+    try {
+        return await window.__TAURI__.core.invoke('get_current_session_id');
+    } catch (e) {
+        console.error('[ORION] IPC ping failed:', e);
         return null;
     }
 }
@@ -48,6 +61,9 @@ window.orionBridge = {
     chat: async (message, sessionId) => {
         if (IS_TAURI) {
             const text = await tauriInvoke('chat', { message, session_id: sessionId });
+            if (text === null) {
+                return { response: '', error: 'IPC call failed — check console' };
+            }
             // Wrap raw string in object shape frontend expects
             return { response: text || '' };
         }

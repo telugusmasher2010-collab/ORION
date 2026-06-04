@@ -51,6 +51,20 @@ fn get_ollama_brain() -> &'static Mutex<core::ollama_brain::OllamaBrain> {
     OLLAMA_BRAIN.get().expect("Ollama brain not initialized")
 }
 
+fn debug_log(msg: &str) {
+    if let Ok(mut f) = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(std::env::temp_dir().join("orion_debug.log"))
+    {
+        use std::io::Write;
+        let _ = writeln!(f, "[{}] {}", std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0), msg);
+    }
+}
+
 // ========================================
 // WINDOW CONTROL COMMANDS
 // ========================================
@@ -112,12 +126,32 @@ fn read_settings_file() -> (serde_json::Value, bool) {
 
 #[tauri::command]
 fn chat(app: tauri::AppHandle, message: String, session_id: i64) -> Result<String, String> {
-    println!("[ORION] Chat: {} (session: {})", message, session_id);
+    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        chat_inner(&app, &message, session_id)
+    }));
+    match result {
+        Ok(Ok(resp)) => Ok(resp),
+        Ok(Err(e)) => Err(e),
+        Err(panic_info) => {
+            let msg = if let Some(s) = panic_info.downcast_ref::<&str>() {
+                s.to_string()
+            } else if let Some(s) = panic_info.downcast_ref::<String>() {
+                s.clone()
+            } else {
+                "Unknown panic in chat command".to_string()
+            };
+            let err = format!("Chat panicked: {}", msg);
+            debug_log(&err);
+            Err(err)
+        }
+    }
+}
 
-    // Load settings for API keys
+fn chat_inner(app: &tauri::AppHandle, message: &str, session_id: i64) -> Result<String, String> {
+    debug_log(&format!("Chat start: len={}, session={}", message.len(), session_id));
+
     let (settings, _) = read_settings_file();
 
-    // Load conversation history (exclude current message — save it after history fetch)
     let history_rows = get_db().get_history(session_id, 50).unwrap_or_default();
     let mut history: Vec<serde_json::Value> = Vec::new();
     for row in &history_rows {
@@ -126,25 +160,19 @@ fn chat(app: tauri::AppHandle, message: String, session_id: i64) -> Result<Strin
         }
     }
 
-    // Detect mode from message content
-    let mode = get_personality().lock().unwrap().detect_mode(&message).to_string();
+    let mode = get_personality().lock().unwrap().detect_mode(message).to_string();
 
-    // Save user message to DB (after history fetch, so it's not duplicated in prompt)
-    let _ = get_db().save_message(session_id, "user", &message, &mode, "user");
+    let _ = get_db().save_message(session_id, "user", message, &mode, "user");
 
-    // Build system prompt from personality engine
     let system_prompt = get_personality().lock().unwrap().build_system_prompt("");
 
-    // Check if a sub-agent should handle this task first
-    let response = match get_registry().lock().unwrap().execute_task(&message, &settings) {
+    let response = match get_registry().lock().unwrap().execute_task(message, &settings) {
         Ok(Some((_info, agent_resp))) => {
-            // Agent handled it — save files if any were created
             let workspace = RESOURCE_DIR.get()
                 .cloned()
                 .unwrap_or_else(|| std::path::PathBuf::from(".."))
                 .join("PROJECTS");
             for file_path in &agent_resp.files_created {
-                // Find the file content in the response for saving
                 let files = core::agent::extract_files_from_response(&agent_resp.response);
                 for f in files {
                     if &f.path == file_path {
@@ -159,20 +187,17 @@ fn chat(app: tauri::AppHandle, message: String, session_id: i64) -> Result<Strin
             agent_resp.response
         }
         Ok(None) => {
-            // No agent routed — use AI brain
-            core::ai_brain::chat(&app, &message, session_id, settings, &history, &system_prompt)?
+            core::ai_brain::chat(app, message, session_id, settings, &history, &system_prompt)?
         }
         Err(e) => {
-            // Agent error — fall back to AI brain
-            println!("[ORION] Agent error, falling back to brain: {}", e);
-            core::ai_brain::chat(&app, &message, session_id, settings, &history, &system_prompt)?
+            debug_log(&format!("Agent error, falling back: {}", e));
+            core::ai_brain::chat(app, message, session_id, settings, &history, &system_prompt)?
         }
     };
 
-    // Save assistant response to DB
     let _ = get_db().save_message(session_id, "assistant", &response, &mode, "groq");
 
-    println!("[ORION] Chat complete ({} chars)", response.len());
+    debug_log(&format!("Chat done: {} chars", response.len()));
     Ok(response)
 }
 

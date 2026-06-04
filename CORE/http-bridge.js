@@ -6,16 +6,47 @@
 
 let input = '';
 process.stdin.setEncoding('utf8');
-process.stdin.on('data', (chunk) => { input += chunk; });
-process.stdin.on('end', async () => {
+
+const flushInput = () => {
+    if (!input.trim()) return;
     try {
         const config = JSON.parse(input);
-        await makeRequest(config);
-    } catch (err) {
-        process.stderr.write(JSON.stringify({ error: err.message }) + '\n');
-        process.exit(1);
+        input = '';
+        makeRequest(config);
+    } catch (_) {
+        // Incomplete JSON — wait for more data
+    }
+};
+
+process.stdin.on('data', (chunk) => {
+    input += chunk;
+    flushInput();
+});
+
+process.stdin.on('end', () => {
+    // Process any remaining buffered data
+    if (input.trim()) {
+        try {
+            const config = JSON.parse(input);
+            makeRequest(config);
+        } catch (err) {
+            process.stderr.write(JSON.stringify({ error: err.message }) + '\n');
+            process.exit(1);
+        }
     }
 });
+
+// Fallback: if Rust never closes stdin, process after a small delay
+setTimeout(() => {
+    if (input.trim()) {
+        try {
+            const config = JSON.parse(input);
+            makeRequest(config);
+        } catch (_) {
+            // Silent fail — not much we can do
+        }
+    }
+}, 500);
 
 async function makeRequest(config) {
     const { method, url, headers, body, stream } = config;
