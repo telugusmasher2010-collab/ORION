@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 // ORION 3.0 — Tauri Backend
 // Full IPC commands backed by SQLite database
 
