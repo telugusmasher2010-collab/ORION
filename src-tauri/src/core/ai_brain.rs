@@ -132,6 +132,8 @@ fn try_fallback(
             let _ = app.emit("chat_error", ChatErrorPayload { error: err.clone() });
             Err(err)
         }
+    }
+}
         }
     }
 
