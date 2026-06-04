@@ -134,12 +134,6 @@ fn try_fallback(
         }
     }
 }
-        }
-    }
-
-    let _ = child.wait();
-    Ok(full_text)
-}
 
 fn ollama_request(
     settings: &Value,
