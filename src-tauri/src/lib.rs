@@ -69,14 +69,14 @@ fn debug_log(msg: &str) {
 // WINDOW CONTROL COMMANDS
 // ========================================
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn minimize_window(app: tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.minimize();
     }
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn maximize_window(app: tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         if window.is_maximized().unwrap_or(false) {
@@ -87,7 +87,7 @@ fn maximize_window(app: tauri::AppHandle) {
     }
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn close_window(app: tauri::AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.close();
@@ -124,7 +124,7 @@ fn read_settings_file() -> (serde_json::Value, bool) {
     (serde_json::json!({}), false)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn chat(app: tauri::AppHandle, message: String, session_id: i64) -> Result<String, String> {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         chat_inner(&app, &message, session_id)
@@ -205,44 +205,44 @@ fn chat_inner(app: &tauri::AppHandle, message: &str, session_id: i64) -> Result<
 // SESSION COMMANDS
 // ========================================
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_sessions() -> Vec<db::Session> {
     get_db().get_sessions().unwrap_or_default()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_current_session_id() -> i64 {
     get_db().get_current_session_id().unwrap_or(1)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn create_session(name: Option<String>, project_id: Option<i64>) -> i64 {
     let title = name.unwrap_or_else(|| "New Chat".to_string());
     let pid = project_id.unwrap_or(1);
     get_db().create_session(&title, pid).unwrap_or(1)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn switch_session(session_id: i64) -> bool {
     get_db().switch_session(session_id).is_ok()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn rename_session(session_id: i64, new_title: String) -> bool {
     get_db().rename_session(session_id, &new_title).is_ok()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn delete_session(session_id: i64) -> bool {
     get_db().delete_session(session_id).is_ok()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_history(session_id: i64) -> Vec<db::ConversationRow> {
     get_db().get_history(session_id, 100).unwrap_or_default()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn clear_history() -> bool {
     get_db().clear_history().is_ok()
 }
@@ -251,13 +251,13 @@ fn clear_history() -> bool {
 // SETTINGS & STATS
 // ========================================
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_settings() -> serde_json::Value {
     let (val, found) = read_settings_file();
     if found { val } else { serde_json::json!({ "error": "settings.json not found" }) }
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_stats() -> serde_json::Value {
     match get_db().get_stats() {
         Ok(stats) => serde_json::to_value(stats).unwrap_or_default(),
@@ -265,7 +265,7 @@ fn get_stats() -> serde_json::Value {
     }
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_mode() -> serde_json::Value {
     let p = get_personality().lock().unwrap();
     serde_json::json!({
@@ -277,7 +277,7 @@ fn get_mode() -> serde_json::Value {
     })
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn set_mode(mode_name: String) -> serde_json::Value {
     let mut p = get_personality().lock().unwrap();
     let success = p.set_mode(&mode_name);
@@ -288,12 +288,12 @@ fn set_mode(mode_name: String) -> serde_json::Value {
 // GOALS
 // ========================================
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_goals() -> Vec<db::Goal> {
     get_db().get_goals().unwrap_or_default()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_goal_stats() -> serde_json::Value {
     match get_db().get_goal_stats() {
         Ok(stats) => serde_json::to_value(stats).unwrap_or_default(),
@@ -301,7 +301,7 @@ fn get_goal_stats() -> serde_json::Value {
     }
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn create_goal(title: String, description: Option<String>, priority: Option<String>, category: Option<String>) -> i64 {
     let desc = description.unwrap_or_default();
     let pri = priority.unwrap_or_else(|| "medium".to_string());
@@ -309,12 +309,12 @@ fn create_goal(title: String, description: Option<String>, priority: Option<Stri
     get_db().create_goal(&title, &desc, &pri, &cat).unwrap_or(0)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn complete_goal(id: i64) -> bool {
     get_db().complete_goal(id).is_ok()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn delete_goal(id: i64) -> bool {
     get_db().delete_goal(id).is_ok()
 }
@@ -323,24 +323,24 @@ fn delete_goal(id: i64) -> bool {
 // PROJECTS
 // ========================================
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_projects() -> Vec<db::Project> {
     get_db().get_projects().unwrap_or_default()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn create_project(name: String, description: Option<String>) -> i64 {
     let desc = description.unwrap_or_default();
     get_db().create_project(&name, &desc).unwrap_or(0)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn update_project(id: i64, name: String, description: Option<String>) -> bool {
     let desc = description.unwrap_or_default();
     get_db().update_project(id, &name, &desc).is_ok()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn delete_project(id: i64) -> bool {
     get_db().delete_project(id).is_ok()
 }
@@ -349,19 +349,19 @@ fn delete_project(id: i64) -> bool {
 // FOLDERS
 // ========================================
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_folders() -> Vec<db::Folder> {
     get_db().get_folders().unwrap_or_default()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn select_folder() -> Option<String> {
     // TODO: Implement native folder dialog via tauri-plugin-dialog
     // For now, returns None — frontend should handle via manual path input
     None
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn add_folder(path: String, name: Option<String>) -> i64 {
     let folder_name = name.unwrap_or_else(|| {
         std::path::Path::new(&path)
@@ -372,22 +372,22 @@ fn add_folder(path: String, name: Option<String>) -> i64 {
     get_db().add_folder(&path, &folder_name).unwrap_or(0)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn set_active_folder(id: i64) -> bool {
     get_db().set_active_folder(id).is_ok()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_active_folder() -> Option<db::Folder> {
     get_db().get_active_folder().unwrap_or(None)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn send_folder_to_scrap(id: i64) -> bool {
     get_db().send_folder_to_scrap(id).is_ok()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_forgotten_folders() -> Vec<db::Folder> {
     get_db().get_forgotten_folders().unwrap_or_default()
 }
@@ -396,17 +396,17 @@ fn get_forgotten_folders() -> Vec<db::Folder> {
 // CLIENTS
 // ========================================
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn list_clients() -> Vec<db::Client> {
     get_db().list_clients().unwrap_or_default()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_client(id: i64) -> Option<db::Client> {
     get_db().get_client(id).unwrap_or(None)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn create_client(data: serde_json::Value) -> i64 {
     let name = data.get("name").and_then(|v| v.as_str()).unwrap_or("");
     let email = data.get("email").and_then(|v| v.as_str()).unwrap_or("");
@@ -415,12 +415,12 @@ fn create_client(data: serde_json::Value) -> i64 {
     get_db().create_client(name, email, phone, notes).unwrap_or(0)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn update_client(id: i64, data: serde_json::Value) -> bool {
     get_db().update_client(id, &data).is_ok()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn delete_client(id: i64) -> bool {
     get_db().delete_client(id).is_ok()
 }
@@ -429,27 +429,27 @@ fn delete_client(id: i64) -> bool {
 // LEADS
 // ========================================
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn list_leads() -> Vec<db::Lead> {
     get_db().list_leads().unwrap_or_default()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_lead(id: i64) -> Option<db::Lead> {
     get_db().get_lead(id).unwrap_or(None)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn create_lead(data: serde_json::Value) -> i64 {
     get_db().create_lead(&data).unwrap_or(0)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn update_lead(id: i64, data: serde_json::Value) -> bool {
     get_db().update_lead(id, &data).is_ok()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn delete_lead(id: i64) -> bool {
     get_db().delete_lead(id).is_ok()
 }
@@ -458,17 +458,17 @@ fn delete_lead(id: i64) -> bool {
 // AI / AGENTS (placeholder — port later)
 // ========================================
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_agents() -> serde_json::Value {
     get_registry().lock().unwrap().status_summary()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_ollama() -> serde_json::Value {
     get_ollama_brain().lock().unwrap().get_info()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_suggestions() -> Vec<serde_json::Value> {
     let goals = get_db().get_goals().unwrap_or_default();
     let goals_json: Vec<serde_json::Value> = goals.iter().map(|g| serde_json::to_value(g).unwrap_or_default()).collect();
@@ -486,12 +486,12 @@ fn get_suggestions() -> Vec<serde_json::Value> {
     )
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_argument_stats() -> serde_json::Value {
     get_argument_engine().lock().unwrap().get_stats()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_memory_context() -> serde_json::Value {
     let profile = get_db().get_user_profile().unwrap_or_default();
     let facts = get_db().get_facts(None).unwrap_or_default();
@@ -505,7 +505,7 @@ fn get_memory_context() -> serde_json::Value {
 // NEW: USER PROFILE COMMANDS
 // ========================================
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_user_info() -> serde_json::Value {
     serde_json::json!({
         "name": get_db().get_profile("name").ok().flatten().map(|p| p.value).unwrap_or_else(|| "Abhi".into()),
@@ -514,38 +514,38 @@ fn get_user_info() -> serde_json::Value {
     })
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn set_preference(key: String, value: String) -> bool {
     get_db().set_profile(&key, &value, "preference").is_ok()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_facts(category: Option<String>) -> Vec<db::MemoryEntry> {
     get_db().get_facts(category.as_deref()).unwrap_or_default()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn save_fact(key: String, value: String, category: Option<String>) -> bool {
     get_db().save_fact(&key, &value, &category.unwrap_or_else(|| "general".into())).is_ok()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn search_history(query: String, limit: Option<i64>) -> Vec<db::ConversationRow> {
     get_db().search_history(&query, limit.unwrap_or(20)).unwrap_or_default()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_follow_ups() -> Vec<db::FollowUp> {
     get_db().get_follow_ups().unwrap_or_default()
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn add_follow_up(context: String, remind_minutes: i64) -> i64 {
     // remind_at is minutes from now, stored as ISO datetime via SQL
     get_db().add_follow_up(&context, &format_remind_at(remind_minutes)).unwrap_or(0)
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn dismiss_follow_up(id: i64) -> bool {
     get_db().dismiss_follow_up(id).is_ok()
 }
@@ -554,13 +554,13 @@ fn dismiss_follow_up(id: i64) -> bool {
 // NEW: CONTEXT COMMANDS
 // ========================================
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn set_active_task(task: String) -> bool {
     get_context_manager().lock().unwrap().set_active_task(&task);
     true
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn get_active_task() -> Option<serde_json::Value> {
     get_context_manager().lock().unwrap().get_active_task().map(|t| serde_json::json!({
         "task": t.task,
@@ -569,13 +569,13 @@ fn get_active_task() -> Option<serde_json::Value> {
     }))
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn clear_active_task() -> bool {
     get_context_manager().lock().unwrap().clear_active_task();
     true
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn check_ollama_health() -> serde_json::Value {
     let available = get_ollama_brain().lock().unwrap().check_health().unwrap_or(false);
     serde_json::json!({ "available": available })
@@ -609,12 +609,12 @@ fn format_remind_at(minutes_from_now: i64) -> String {
 // VOICE (placeholder)
 // ========================================
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn toggle_voice_input() -> serde_json::Value {
     serde_json::json!({ "enabled": false, "message": "Voice not yet ported to Rust" })
 }
 
-#[tauri::command]
+#[tauri::command(rename_all = "snake_case")]
 fn toggle_voice_output() -> serde_json::Value {
     serde_json::json!({ "enabled": false, "message": "Voice not yet ported to Rust" })
 }

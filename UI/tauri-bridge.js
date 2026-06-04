@@ -60,7 +60,7 @@ window.orionBridge = {
 
     chat: async (message, sessionId) => {
         if (IS_TAURI) {
-            const text = await tauriInvoke('chat', { message, sessionId });
+            const text = await tauriInvoke('chat', { message, session_id: sessionId });
             if (text === null) {
                 return { response: '', error: 'IPC call failed — check console' };
             }
@@ -104,11 +104,11 @@ window.orionBridge = {
     // ========================================
     getSessions: async () => IS_TAURI ? tauriInvoke('get_sessions') : electronFallback('getSessions'),
     getCurrentSessionId: async () => IS_TAURI ? tauriInvoke('get_current_session_id') : electronFallback('getCurrentSessionId'),
-    createSession: async (name, projectId) => IS_TAURI ? tauriInvoke('create_session', { name, projectId }) : electronFallback('createSession', name, projectId),
-    switchSession: async (sessionId) => IS_TAURI ? tauriInvoke('switch_session', { sessionId }) : electronFallback('switchSession', sessionId),
-    renameSession: async (sessionId, newTitle) => IS_TAURI ? tauriInvoke('rename_session', { sessionId, newTitle }) : electronFallback('renameSession', sessionId, newTitle),
-    deleteSession: async (sessionId) => IS_TAURI ? tauriInvoke('delete_session', { sessionId }) : electronFallback('deleteSession', sessionId),
-    getHistory: async (sessionId) => IS_TAURI ? tauriInvoke('get_history', { sessionId }) : electronFallback('getHistory', sessionId),
+    createSession: async (name, projectId) => IS_TAURI ? tauriInvoke('create_session', { name, project_id: projectId }) : electronFallback('createSession', name, projectId),
+    switchSession: async (sessionId) => IS_TAURI ? tauriInvoke('switch_session', { session_id: sessionId }) : electronFallback('switchSession', sessionId),
+    renameSession: async (sessionId, newTitle) => IS_TAURI ? tauriInvoke('rename_session', { session_id: sessionId, new_title: newTitle }) : electronFallback('renameSession', sessionId, newTitle),
+    deleteSession: async (sessionId) => IS_TAURI ? tauriInvoke('delete_session', { session_id: sessionId }) : electronFallback('deleteSession', sessionId),
+    getHistory: async (sessionId) => IS_TAURI ? tauriInvoke('get_history', { session_id: sessionId }) : electronFallback('getHistory', sessionId),
     clearHistory: async (sessionId) => IS_TAURI ? tauriInvoke('clear_history') : electronFallback('clearHistory', sessionId),
 
     // ========================================
@@ -117,7 +117,7 @@ window.orionBridge = {
     getSettings: async () => IS_TAURI ? tauriInvoke('get_settings') : electronFallback('getSettings'),
     getStats: async () => IS_TAURI ? tauriInvoke('get_stats') : electronFallback('getStats'),
     getMode: async () => IS_TAURI ? tauriInvoke('get_mode') : electronFallback('getMode'),
-    setMode: async (mode) => IS_TAURI ? tauriInvoke('set_mode', { modeName: mode }) : electronFallback('setMode', mode),
+    setMode: async (mode) => IS_TAURI ? tauriInvoke('set_mode', { mode_name: mode }) : electronFallback('setMode', mode),
 
     // ========================================
     // GOALS
@@ -180,7 +180,7 @@ window.orionBridge = {
     // FOLLOW-UPS
     // ========================================
     getFollowUps: async () => IS_TAURI ? tauriInvoke('get_follow_ups') : electronFallback('getFollowUps'),
-    addFollowUp: async (context, remindMinutes) => IS_TAURI ? tauriInvoke('add_follow_up', { context, remindMinutes }) : electronFallback('addFollowUp', context, remindMinutes),
+    addFollowUp: async (context, remindMinutes) => IS_TAURI ? tauriInvoke('add_follow_up', { context, remind_minutes: remindMinutes }) : electronFallback('addFollowUp', context, remindMinutes),
     dismissFollowUp: async (id) => IS_TAURI ? tauriInvoke('dismiss_follow_up', { id }) : electronFallback('dismissFollowUp', id),
 
     // ========================================
