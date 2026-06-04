@@ -1,0 +1,24 @@
+ORION – System Constraints
+
+Time Constraints:
+- Exams are not active.
+- Daily ORION work limit: 1–2 hours max.
+- Study time cannot be reduced for earning tasks.
+
+Scope Constraints:
+- Phase 1 only.
+- No automation.
+- No external tools unless explicitly allowed.
+
+Behavior Constraints:
+- No multitasking.
+- No expanding features mid-week.
+- No system redesign during execution days.
+
+Earning Constraints:
+- Only low-risk, ethical methods.
+- No distraction-heavy platforms.
+- Earnings must not interfere with exams.
+
+Override Rule:
+If any conflict occurs, academics > health > system > money.

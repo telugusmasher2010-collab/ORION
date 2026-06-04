@@ -1,0 +1,306 @@
+/**
+ * ORION — Personality Engine v2
+ * Loads mode configurations, manages personality, and builds system prompts.
+ * Uses modes.json for mode definitions.
+ */
+
+const fs = require('fs');
+const path = require('path');
+
+const BASE_DIR = path.join(__dirname, '..');
+
+class PersonalityEngine {
+    constructor() {
+        this.systemRules = '';
+        this.masterPrompt = '';
+        this.constraints = '';
+        this.longTermMemory = '';
+        this.startupPrompt = '';
+        this.currentMode = 'orion';
+        this.modes = {};
+        this.argumentStrength = 'direct';
+        this.proactiveLevel = 'on-request';
+        this.userProfile = null;
+        this.loadAll();
+    }
+
+    /**
+     * Load all personality files and mode configs
+     */
+    loadAll() {
+        this.systemRules = this._readFile('CORE/systems_rules.md.txt');
+        this.masterPrompt = this._readFile('PROMPTS/master_prompt.md.txt');
+        this.constraints = this._readFile('CONFIG/constraints.md.txt');
+        this.longTermMemory = this._readFile('MEMORY/long_term_memory.md.txt');
+        this.startupPrompt = this._readFile('PROMPTS/startup_prompt.md.txt');
+        this._loadModes();
+    }
+
+    /**
+     * Load mode configurations from modes.json
+     */
+    _loadModes() {
+        try {
+            const modesPath = path.join(BASE_DIR, 'CONFIG', 'modes.json');
+            const modesData = JSON.parse(fs.readFileSync(modesPath, 'utf-8'));
+            this.modes = modesData.modes || {};
+            this.argumentStrength = modesData.argumentStrength || 'direct';
+            this.proactiveLevel = modesData.proactiveLevel || 'on-request';
+            this.currentMode = modesData.defaultMode || 'orion';
+            console.log(`[PersonalityEngine] Loaded ${Object.keys(this.modes).length} modes`);
+        } catch (err) {
+            console.warn('[PersonalityEngine] Could not load modes.json, using defaults:', err.message);
+            this.modes = this._getDefaultModes();
+        }
+    }
+
+    /**
+     * Get default modes if modes.json fails
+     */
+    _getDefaultModes() {
+        return {
+            orion: {
+                name: 'ORION',
+                display: '⚙️ ORION',
+                description: 'Default partner mode',
+                addressUser: 'Abhi',
+                voice: 'default',
+                argumentStrength: 'direct',
+                proactive: true,
+                color: '#00d4ff',
+                keywords: ['default', 'chat', 'help'],
+                systemPrompt: 'You are ORION, Abhi\'s partner and friend. You are witty, smart, loyal, and direct. Call him Abhi.'
+            }
+        };
+    }
+
+    /**
+     * Read a file relative to ORION base directory
+     */
+    _readFile(relativePath) {
+        try {
+            const fullPath = path.join(BASE_DIR, relativePath);
+            return fs.readFileSync(fullPath, 'utf-8');
+        } catch (err) {
+            console.warn(`[PersonalityEngine] Could not load: ${relativePath}`);
+            return '';
+        }
+    }
+
+    /**
+     * Set user profile for personalized interactions
+     */
+    setUserProfile(profile) {
+        this.userProfile = profile;
+    }
+
+    /**
+     * Get current mode configuration
+     */
+    getCurrentModeConfig() {
+        return this.modes[this.currentMode] || this.modes.orion;
+    }
+
+    /**
+     * Set mode manually
+     */
+    setMode(modeName) {
+        if (this.modes[modeName]) {
+            this.currentMode = modeName;
+            console.log(`[PersonalityEngine] Mode switched to: ${modeName}`);
+            return { success: true, mode: modeName };
+        }
+        return { success: false, error: 'Mode not found' };
+    }
+
+    /**
+     * Get current mode name
+     */
+    getCurrentMode() {
+        return this.currentMode;
+    }
+
+    /**
+     * Detect which mode ORION should operate in based on the user's message
+     */
+    detectMode(message) {
+        if (!message || message.trim() === '') {
+            return this.currentMode;
+        }
+
+        const msg = message.toLowerCase();
+
+        for (const [modeName, modeConfig] of Object.entries(this.modes)) {
+            if (modeConfig.keywords) {
+                for (const keyword of modeConfig.keywords) {
+                    if (msg.includes(keyword.toLowerCase())) {
+                        return modeName;
+                    }
+                }
+            }
+        }
+
+        return this.currentMode;
+    }
+
+    /**
+     * Get the mode display name for UI
+     */
+    getModeDisplay(mode) {
+        const modeName = mode || this.currentMode;
+        const modeConfig = this.modes[modeName];
+        return modeConfig ? modeConfig.display : '⚙️ ORION';
+    }
+
+    /**
+     * Get mode color for UI
+     */
+    getModeColor(mode) {
+        const modeName = mode || this.currentMode;
+        const modeConfig = this.modes[modeName];
+        return modeConfig ? modeConfig.color : '#00d4ff';
+    }
+
+    /**
+     * Get mode description
+     */
+    getModeDescription(mode) {
+        const modeName = mode || this.currentMode;
+        const modeConfig = this.modes[modeName];
+        return modeConfig ? modeConfig.description : '';
+    }
+
+    /**
+     * Get argument strength for current mode
+     */
+    getArgumentStrength() {
+        const modeConfig = this.getCurrentModeConfig();
+        return modeConfig.argumentStrength || this.argumentStrength;
+    }
+
+    /**
+     * Check if mode is proactive
+     */
+    isProactive() {
+        const modeConfig = this.getCurrentModeConfig();
+        return modeConfig.proactive !== false;
+    }
+
+    /**
+     * Get how to address the user
+     */
+    getUserAddress() {
+        const modeConfig = this.getCurrentModeConfig();
+        return modeConfig.addressUser || 'Abhi';
+    }
+
+    /**
+     * Get voice profile for current mode
+     */
+    getVoiceProfile() {
+        const modeConfig = this.getCurrentModeConfig();
+        return modeConfig.voice || 'default';
+    }
+
+    /**
+     * Build the complete system prompt for the LLM
+     */
+    buildSystemPrompt(conversationContext = '') {
+        const modeConfig = this.getCurrentModeConfig();
+        const userAddress = modeConfig.addressUser || 'Abhi';
+        const userName = this.userProfile?.name || 'Abhi';
+
+        const parts = [];
+
+        // Master prompt (core identity and thinking framework)
+        if (this.masterPrompt) {
+            parts.push(this.masterPrompt.replace('[dynamically inserted]', modeConfig.display));
+        }
+
+        // Mode-specific prompt
+        if (modeConfig.systemPrompt) {
+            parts.push(modeConfig.systemPrompt);
+        }
+
+        // System rules
+        if (this.systemRules) {
+            parts.push(this.systemRules);
+        }
+
+        // User address instruction
+        parts.push(`Address the user as "${userAddress}".`);
+
+        // Conversation context (memory, previous messages)
+        if (conversationContext) {
+            parts.push(`CONTEXT:\n${conversationContext}`);
+        }
+
+        return parts.join('\n\n').trim();
+    }
+
+    /**
+     * Get tone description based on mode
+     */
+    _getToneForMode(modeConfig) {
+        switch (modeConfig.voice) {
+            case 'playful':
+                return 'Friendly, witty, with a touch of sass';
+            case 'formal':
+                return 'British, sophisticated, precise, respectful';
+            case 'soft':
+                return 'Gentle, patient, encouraging';
+            default:
+                return 'Friendly, modern, direct, and collaborative';
+        }
+    }
+
+    /**
+     * Get argument style based on strength
+     */
+    _getArgumentStyle() {
+        switch (this.getArgumentStrength()) {
+            case 'gentle':
+                return 'suggest better alternatives gently';
+            case 'stubborn':
+                return 'refuse to proceed until they explain their reasoning';
+            case 'direct':
+            default:
+                return 'explain why it\'s a bad idea and suggest alternatives';
+        }
+    }
+
+    /**
+     * Get all available modes for UI
+     */
+    getAllModes() {
+        const modesList = [];
+        for (const [key, config] of Object.entries(this.modes)) {
+            modesList.push({
+                id: key,
+                name: config.name,
+                display: config.display,
+                description: config.description,
+                color: config.color,
+                active: key === this.currentMode
+            });
+        }
+        return modesList;
+    }
+
+    /**
+     * Build mode-specific context for suggestion engine
+     */
+    getModeContext() {
+        const modeConfig = this.getCurrentModeConfig();
+        return {
+            mode: this.currentMode,
+            display: modeConfig.display,
+            argumentStrength: this.getArgumentStrength(),
+            isProactive: this.isProactive(),
+            addressUser: this.getUserAddress(),
+            voice: this.getVoiceProfile()
+        };
+    }
+}
+
+module.exports = PersonalityEngine;

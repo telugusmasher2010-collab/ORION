@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ORION</title>
+    <link rel="stylesheet" href="styles/orion-3.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Title Bar -->
+    <div id="titlebar">
+        <div id="titlebar-drag">
+            <span class="logo-icon">◈</span>
+            <span class="titlebar-logo">ORION</span>
+            <span id="orion-status" class="status-indicator status-online">
+                <span class="status-dot"></span>
+                <span class="status-text">ONLINE</span>
+            </span>
+        </div>
+        <div id="titlebar-controls">
+            <button id="btn-minimize" class="titlebar-btn" onclick="window.orionBridge.minimize()">─</button>
+            <button id="btn-maximize" class="titlebar-btn" onclick="window.orionBridge.maximize()">□</button>
+            <button id="btn-close" class="titlebar-btn btn-close" onclick="window.orionBridge.close()">✕</button>
+        </div>
+    </div>
+
+    <!-- Main Layout -->
+    <div id="app" class="app-layout">
+
+        <!-- LEFT SIDEBAR (Icon-first, expandable) -->
+        <aside id="sidebar-left" class="sidebar-left collapsed">
+            <nav class="sidebar-nav">
+                <button class="nav-item active" data-view="dashboard" data-tooltip="Dashboard">
+                    <span class="nav-icon">🏠</span>
+                    <span class="nav-text">Dashboard</span>
+                </button>
+                <button class="nav-item" data-view="projects" data-tooltip="Projects">
+                    <span class="nav-icon">📂</span>
+                    <span class="nav-text">Projects</span>
+                </button>
+                <button class="nav-item" data-view="tasks" data-tooltip="Tasks">
+                    <span class="nav-icon">📋</span>
+                    <span class="nav-text">Tasks</span>
+                </button>
+                <button class="nav-item" data-view="clients" data-tooltip="Clients">
+                    <span class="nav-icon">👥</span>
+                    <span class="nav-text">Clients</span>
+                </button>
+                <button class="nav-item" data-view="leads" data-tooltip="Leads">
+                    <span class="nav-icon">🎯</span>
+                    <span class="nav-text">Leads</span>
+                </button>
+                <button class="nav-item" data-view="systems" data-tooltip="Systems">
+                    <span class="nav-icon">⚡</span>
+                    <span class="nav-text">Systems</span>
+                </button>
+                <button class="nav-item" data-view="calendar" data-tooltip="Calendar">
+                    <span class="nav-icon">📅</span>
+                    <span class="nav-text">Calendar</span>
+                </button>
+                <button class="nav-item" data-view="analytics" data-tooltip="Analytics">
+                    <span class="nav-icon">📊</span>
+                    <span class="nav-text">Analytics</span>
+                </button>
+                <button class="nav-item" data-view="logs" data-tooltip="Logs">
+                    <span class="nav-icon">📜</span>
+                    <span class="nav-text">Logs</span>
+                </button>
+                <button class="nav-item" data-view="settings" data-tooltip="Settings">
+                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-text">Settings</span>
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="user-avatar" title="Abhi">A</div>
+                <span class="nav-text user-name">Abhi</span>
+            </div>
+
+            <div class="sidebar-bottom">
+                <button class="sidebar-toggle" id="sidebar-toggle" title="Toggle sidebar">
+                    <span class="toggle-icon">◀</span>
+                </button>
+            </div>
+        </aside>
+
+        <!-- LEFT DIVIDER -->
+        <div class="divider divider-left" id="divider-left"></div>
+
+        <!-- CENTER PANEL -->
+        <main id="center-panel" class="center-panel">
+
+            <!-- View Container -->
+            <div class="view-container">
+
+                <!-- DASHBOARD VIEW (Plain start — project list) -->
+                <div id="view-dashboard" class="view active">
+                    <div class="dashboard-plain">
+                        <div class="dashboard-hero">
+                            <div class="hero-icon">◈</div>
+                            <h1>ORION</h1>
+                            <p class="hero-sub">Your personal AI command center</p>
+                        </div>
+                        <div class="dashboard-quick">
+                            <button class="quick-card" onclick="showCreateProject()">
+                                <span class="qc-icon">📁</span>
+                                <span class="qc-title">New Project</span>
+                                <span class="qc-desc">Create a new project</span>
+                            </button>
+                            <button class="quick-card" onclick="switchView('projects')">
+                                <span class="qc-icon">📂</span>
+                                <span class="qc-title">Open Project</span>
+                                <span class="qc-desc">Browse your projects and chats</span>
+                            </button>
+                            <button class="quick-card" onclick="createNewChat()">
+                                <span class="qc-icon">💬</span>
+                                <span class="qc-title">New Chat</span>
+                                <span class="qc-desc">Start a fresh conversation</span>
+                            </button>
+                        </div>
+                        <div class="dashboard-stats" id="dashboard-stats">
+                            <div class="mini-stat">
+                                <span class="ms-value" id="dash-sessions">0</span>
+                                <span class="ms-label">Sessions</span>
+                            </div>
+                            <div class="mini-stat">
+                                <span class="ms-value" id="dash-messages">0</span>
+                                <span class="ms-label">Messages</span>
+                            </div>
+                            <div class="mini-stat">
+                                <span class="ms-value" id="dash-goals">0</span>
+                                <span class="ms-label">Goals</span>
+                            </div>
+                        </div>
+                        <div class="dashboard-recent" id="dashboard-recent">
+                            <h3>Recent Chats</h3>
+                            <div id="recent-sessions-list" class="recent-sessions-list"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PROJECTS VIEW -->
+                <div id="view-projects" class="view hidden">
+                    <div class="view-header">
+                        <h2>Projects</h2>
+                        <button class="btn-primary" onclick="showCreateProject()">+ New Project</button>
+                    </div>
+                    <div id="projects-container" class="projects-grid">
+                        <div class="empty-view">Loading projects...</div>
+                    </div>
+                </div>
+
+                <!-- PROJECT DETAIL VIEW -->
+                <div id="view-project-detail" class="view hidden">
+                    <div class="view-header">
+                        <div class="view-header-left">
+                            <button class="btn-back" onclick="switchView('projects')">← Back</button>
+                            <h2 id="project-detail-title">Project</h2>
+                        </div>
+                        <button class="btn-primary" onclick="createChatInCurrentProject()">+ New Chat</button>
+                    </div>
+                    <div id="project-sessions-list" class="sessions-list">
+                        <div class="empty-view">No chats in this project yet.</div>
+                    </div>
+                </div>
+
+                <!-- TASKS VIEW -->
+                <div id="view-tasks" class="view hidden">
+                    <div class="view-header">
+                        <h2>Tasks & Goals</h2>
+                        <button class="btn-primary" onclick="createNewTask()">+ New Task</button>
+                    </div>
+                    <div id="tasks-list" class="tasks-grid">
+                        <div class="empty-view">No tasks yet.</div>
+                    </div>
+                </div>
+
+                <!-- CLIENTS VIEW -->
+                <div id="view-clients" class="view hidden">
+                    <div class="view-header">
+                        <h2>Clients</h2>
+                        <button class="btn-primary" onclick="openClientModal()">+ Add Client</button>
+                    </div>
+                    <div id="clients-list" class="clients-grid">
+                        <div class="empty-view">Loading clients...</div>
+                    </div>
+                </div>
+
+                <!-- LEADS VIEW -->
+                <div id="view-leads" class="view hidden">
+                    <div class="view-header">
+                        <h2>Lead Pipeline</h2>
+                        <button class="btn-primary" onclick="openLeadModal()">+ Add Lead</button>
+                    </div>
+                    <div class="leads-kanban">
+                        <div class="lead-column" data-stage="cold">
+                            <div class="lead-column-header">Cold</div>
+                            <div id="leads-cold" class="lead-column-body"></div>
+                        </div>
+                        <div class="lead-column" data-stage="warm">
+                            <div class="lead-column-header">Warm</div>
+                            <div id="leads-warm" class="lead-column-body"></div>
+                        </div>
+                        <div class="lead-column" data-stage="hot">
+                            <div class="lead-column-header">Hot</div>
+                            <div id="leads-hot" class="lead-column-body"></div>
+                        </div>
+                        <div class="lead-column" data-stage="converted">
+                            <div class="lead-column-header">Converted</div>
+                            <div id="leads-converted" class="lead-column-body"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SYSTEMS VIEW -->
+                <div id="view-systems" class="view hidden">
+                    <div class="view-header">
+                        <h2>Systems & Agents</h2>
+                    </div>
+                    <div class="systems-grid">
+                        <div class="system-card">
+                            <div class="sys-header">AI Engine</div>
+                            <div class="sys-status status-ok">● ONLINE</div>
+                            <div class="sys-detail" id="sys-current-brain">Brain: N/A</div>
+                        </div>
+                        <div class="system-card">
+                            <div class="sys-header">Ollama (Local)</div>
+                            <div class="sys-status" id="sys-ollama-status">● OFFLINE</div>
+                            <div class="sys-detail" id="sys-ollama-models">Models: N/A</div>
+                        </div>
+                        <div class="system-card">
+                            <div class="sys-header">Memory Engine</div>
+                            <div class="sys-status status-ok">● ACTIVE</div>
+                            <div class="sys-detail" id="sys-memory-stats">Loading...</div>
+                        </div>
+                        <div class="system-card">
+                            <div class="sys-header">Sub-Agents</div>
+                            <div class="sys-status status-ok">● READY</div>
+                            <div class="sys-detail" id="sys-agents-list">Loading...</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CALENDAR VIEW -->
+                <div id="view-calendar" class="view hidden">
+                    <div class="view-header">
+                        <h2>Calendar & Schedule</h2>
+                        <button class="btn-primary" onclick="createNewTask()">+ New Task</button>
+                    </div>
+                    <div class="calendar-content">
+                        <div id="calendar-grid" class="calendar-grid"></div>
+                    </div>
+                </div>
+
+                <!-- ANALYTICS VIEW -->
+                <div id="view-analytics" class="view hidden">
+                    <div class="view-header">
+                        <h2>Analytics</h2>
+                    </div>
+                    <div class="analytics-grid">
+                        <div class="analytics-card">
+                            <span class="analytics-value" id="ana-total-sessions">0</span>
+                            <span class="analytics-label">Total Sessions</span>
+                        </div>
+                        <div class="analytics-card">
+                            <span class="analytics-value" id="ana-total-messages">0</span>
+                            <span class="analytics-label">Total Messages</span>
+                        </div>
+                        <div class="analytics-card">
+                            <span class="analytics-value" id="ana-active-goals">0</span>
+                            <span class="analytics-label">Active Goals</span>
+                        </div>
+                        <div class="analytics-card">
+                            <span class="analytics-value" id="ana-completed-goals">0</span>
+                            <span class="analytics-label">Completed Goals</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- LOGS VIEW -->
+                <div id="view-logs" class="view hidden">
+                    <div class="view-header">
+                        <h2>System Logs</h2>
+                        <button class="btn-primary" onclick="document.getElementById('system-logs').innerHTML = ''">Clear</button>
+                    </div>
+                    <div id="system-logs" class="logs-container"></div>
+                </div>
+
+                <!-- SETTINGS VIEW -->
+                <div id="view-settings" class="view hidden">
+                    <div class="view-header">
+                        <h2>Settings</h2>
+                    </div>
+                    <div class="settings-panel-inline">
+                        <div class="setting-row">
+                            <span>Current Mode</span>
+                            <span id="setting-current-mode">ORION</span>
+                        </div>
+                        <div class="setting-row">
+                            <span>Ollama</span>
+                            <span id="setting-ollama-status" class="status-offline">OFFLINE</span>
+                        </div>
+                        <button class="btn-primary" style="margin-top:16px;width:100%" onclick="location.reload()">Restart App</button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- CHAT SECTION -->
+            <div class="chat-section" id="chat-section">
+                <div class="chat-divider" id="chat-divider">
+                    <div class="chat-divider-handle"></div>
+                </div>
+
+                <div class="chat-area">
+                    <div id="messages-container">
+                        <div id="messages">
+                            <!-- Messages load here -->
+                        </div>
+                    </div>
+
+                    <div class="input-wrapper">
+                        <textarea id="message-input" placeholder="Talk to ORION..." rows="1"></textarea>
+                        <div class="input-actions">
+                            <button id="btn-mic" class="input-btn" onclick="toggleVoiceInput()" title="Voice input">🎤</button>
+                            <button id="btn-voice-output" class="input-btn" onclick="toggleVoiceOutput()" title="Voice output" data-enabled="false">🔊</button>
+                            <button id="btn-send" class="input-btn btn-send" onclick="sendMessage()">▶</button>
+                        </div>
+                    </div>
+                    <div id="input-hint">
+                        <span id="typing-indicator" class="hidden">
+                            <span class="typing-dot"></span>
+                            <span class="typing-dot"></span>
+                            <span class="typing-dot"></span>
+                            ORION is thinking...
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- RIGHT DIVIDER -->
+        <div class="divider divider-right hidden" id="divider-right"></div>
+
+        <!-- RIGHT PANEL (Collapsible) -->
+        <aside id="sidebar-right" class="sidebar-right collapsed">
+
+            <button class="right-toggle" id="right-toggle" title="Toggle panel">
+                <span>◀</span>
+            </button>
+
+            <!-- Session Info -->
+            <div class="context-card">
+                <div class="card-header">
+                    <span class="card-icon">💬</span>
+                    <span class="card-title">Session</span>
+                </div>
+                <div class="card-content">
+                    <div class="session-stat">
+                        <span class="stat-label">Mode</span>
+                        <span class="stat-value" id="right-session-mode">ORION</span>
+                    </div>
+                    <div class="session-stat">
+                        <span class="stat-label">Messages</span>
+                        <span class="stat-value" id="right-session-msgs">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- System Status -->
+            <div class="context-card">
+                <div class="card-header">
+                    <span class="card-icon">⚙️</span>
+                    <span class="card-title">Status</span>
+                </div>
+                <div class="card-content">
+                    <div class="system-status-list">
+                        <div class="status-item">
+                            <span class="status-label">AI Engine</span>
+                            <span class="status-value" id="right-status-ai">● Online</span>
+                        </div>
+                        <div class="status-item">
+                            <span class="status-label">Memory</span>
+                            <span class="status-value" id="right-status-memory">● Active</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="context-card">
+                <div class="card-header">
+                    <span class="card-icon">📜</span>
+                    <span class="card-title">Activity</span>
+                </div>
+                <div class="card-content">
+                    <div id="activity-list" class="activity-list">
+                        <div class="activity-item">
+                            <span class="activity-time">Now</span>
+                            <span class="activity-text">ORION initialized</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <!-- Client Modal -->
+    <div id="client-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="client-modal-title">Add Client</h3>
+                <button class="modal-close" onclick="closeClientModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="client-id">
+                <div class="form-group">
+                    <label>Name *</label>
+                    <input type="text" id="client-name" placeholder="Client name">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="client-email" placeholder="client@email.com">
+                </div>
+                <div class="form-group">
+                    <label>Phone</label>
+                    <input type="text" id="client-phone" placeholder="+91 98765 43210">
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea id="client-notes" placeholder="Notes about this client..." rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeClientModal()">Cancel</button>
+                <button class="btn-primary" onclick="saveClient()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lead Modal -->
+    <div id="lead-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="lead-modal-title">Add Lead</h3>
+                <button class="modal-close" onclick="closeLeadModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="lead-id">
+                <div class="form-group">
+                    <label>Name *</label>
+                    <input type="text" id="lead-name" placeholder="Lead name">
+                </div>
+                <div class="form-group">
+                    <label>Company</label>
+                    <input type="text" id="lead-company" placeholder="Company name">
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" id="lead-email" placeholder="lead@email.com">
+                </div>
+                <div class="form-group">
+                    <label>Phone</label>
+                    <input type="text" id="lead-phone" placeholder="+91 98765 43210">
+                </div>
+                <div class="form-group">
+                    <label>Stage</label>
+                    <select id="lead-stage">
+                        <option value="cold">Cold</option>
+                        <option value="warm">Warm</option>
+                        <option value="hot">Hot</option>
+                        <option value="converted">Converted</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Value</label>
+                    <input type="number" id="lead-value" placeholder="Estimated value" min="0">
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea id="lead-notes" placeholder="Notes about this lead..." rows="3"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeLeadModal()">Cancel</button>
+                <button class="btn-primary" onclick="saveLead()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Prompt Modal (replaces native prompt()) -->
+    <div id="prompt-modal" class="modal hidden">
+        <div class="modal-content" style="max-width: 380px;">
+            <div class="modal-header">
+                <h3 id="prompt-modal-title">Input</h3>
+                <button class="modal-close" onclick="promptModalCancel()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p id="prompt-modal-message" style="font-size:13px;color:var(--text-secondary);margin-bottom:12px;"></p>
+                <input type="text" id="prompt-modal-input" placeholder="" style="width:100%">
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="promptModalCancel()">Cancel</button>
+                <button class="btn-primary" id="prompt-modal-ok" onclick="promptModalConfirm()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Modal (replaces native confirm()) -->
+    <div id="confirm-modal" class="modal hidden">
+        <div class="modal-content" style="max-width: 380px;">
+            <div class="modal-header">
+                <h3 id="confirm-modal-title">Confirm</h3>
+                <button class="modal-close" onclick="confirmModalCancel()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirm-modal-message" style="font-size:13px;color:var(--text-secondary);"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="confirmModalCancel()">Cancel</button>
+                <button class="btn-primary" id="confirm-modal-ok" onclick="confirmModalConfirm()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Alert Modal (replaces native alert()) -->
+    <div id="alert-modal" class="modal hidden">
+        <div class="modal-content" style="max-width: 380px;">
+            <div class="modal-header">
+                <h3 id="alert-modal-title">ORION</h3>
+                <button class="modal-close" onclick="alertModalClose()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p id="alert-modal-message" style="font-size:13px;color:var(--text-secondary);"></p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="alertModalClose()">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="tauri-bridge.js"></script>
+    <script src="renderer.js"></script>
+    <script src="orion-3.js"></script>
+</body>
+</html>

@@ -1,0 +1,190 @@
+/**
+ * ORION — Ollama Local Brain
+ * Connects to Ollama service running on localhost:11434.
+ * Supports health checks, model switching, and streaming.
+ */
+
+class OllamaBrain {
+    constructor(config) {
+        this.host = config.host || 'http://localhost:11434';
+        this.models = config.models || {
+            fast: 'qwen2.5-coder:1.5b',
+            coder: 'qwen2.5-coder:3b',
+            manager: 'qwen3:4b',
+            reasoning: 'deepseek-r1:7b'
+        };
+        this.available = false;
+        this.availableModels = [];
+    }
+
+    /**
+     * Health check — verifies Ollama is running and fetches available models
+     */
+    async checkHealth() {
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 5000);
+
+            const response = await fetch(`${this.host}/api/tags`, {
+                method: 'GET',
+                signal: controller.signal
+            });
+
+            clearTimeout(timeout);
+
+            if (response.ok) {
+                const data = await response.json();
+                this.available = true;
+                this.availableModels = data.models.map(m => m.name);
+                console.log(`[OllamaBrain] Connected. Models: ${this.availableModels.join(', ')}`);
+                return true;
+            }
+        } catch (err) {
+            this.available = false;
+            this.availableModels = [];
+            if (err.name === 'AbortError') {
+                console.log('[OllamaBrain] Offline: Health check timed out (5s)');
+            } else {
+                console.log(`[OllamaBrain] Offline: ${err.message}`);
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Get the right model for a task type
+     */
+    getModelForTask(taskType) {
+        switch (taskType) {
+            case 'fast':
+                return this.models.fast;
+            case 'coder':
+                return this.models.coder;
+            case 'reasoning':
+                return this.models.reasoning;
+            case 'manager':
+            default:
+                return this.models.manager;
+        }
+    }
+
+    /**
+     * Send a streaming chat request to Ollama
+     */
+    async streamChat(messages, model, onChunk) {
+        if (!this.available) {
+            throw new Error('Ollama is offline');
+        }
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 60000); // 60s timeout for local model
+
+        try {
+            const response = await fetch(`${this.host}/api/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model, messages, stream: true }),
+                signal: controller.signal
+            });
+
+            clearTimeout(timeout);
+
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`Ollama API error: ${response.status} ${errText}`);
+            }
+
+            const reader = response.body.getReader();
+            let fullText = '';
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += new TextDecoder().decode(value);
+                const lines = buffer.split('\n');
+                buffer = lines.pop() || '';
+
+                for (const line of lines) {
+                    if (!line.trim()) continue;
+                    try {
+                        const json = JSON.parse(line);
+                        // Check for error response
+                        if (json.error) {
+                            throw new Error(`Ollama error: ${json.error}`);
+                        }
+                        const text = json.message?.content;
+                        if (text) {
+                            fullText += text;
+                            if (onChunk) onChunk(text);
+                        }
+                    } catch (e) {
+                        if (e.message && e.message.startsWith('Ollama error')) {
+                            throw e;
+                        }
+                        // Skip malformed lines
+                    }
+                }
+            }
+
+            return fullText;
+        } catch (err) {
+            clearTimeout(timeout);
+            if (err.name === 'AbortError') throw new Error('Ollama request timed out (60s)');
+            throw err;
+        }
+    }
+
+    /**
+     * Send a non-streaming chat request (for agents that need full response)
+     */
+    async chat(messages, model) {
+        if (!this.available) {
+            throw new Error('Ollama is offline');
+        }
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 60000);
+
+        try {
+            const response = await fetch(`${this.host}/api/chat`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model, messages, stream: false }),
+                signal: controller.signal
+            });
+
+            clearTimeout(timeout);
+
+            if (!response.ok) {
+                const errText = await response.text();
+                throw new Error(`Ollama API error: ${response.status} ${errText}`);
+            }
+
+            const data = await response.json();
+            if (data.error) {
+                throw new Error(`Ollama error: ${data.error}`);
+            }
+            return data.message?.content || '';
+        } catch (err) {
+            clearTimeout(timeout);
+            if (err.name === 'AbortError') throw new Error('Ollama request timed out (60s)');
+            throw err;
+        }
+    }
+
+    /**
+     * Get Ollama status info for UI
+     */
+    getInfo() {
+        return {
+            available: this.available,
+            host: this.host,
+            models: this.models,
+            availableModels: this.availableModels
+        };
+    }
+}
+
+module.exports = OllamaBrain;

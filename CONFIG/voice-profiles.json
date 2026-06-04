@@ -1,0 +1,51 @@
+{
+  "voices": {
+    "default": {
+      "name": "Default",
+      "rate": 1.0,
+      "pitch": 1.0,
+      "volume": 1.0,
+      "description": "ORION's default voice"
+    },
+    "playful": {
+      "name": "Playful",
+      "rate": 1.1,
+      "pitch": 1.1,
+      "volume": 1.0,
+      "description": "FRIDAY's playful, faster voice"
+    },
+    "formal": {
+      "name": "Formal",
+      "rate": 0.9,
+      "pitch": 0.9,
+      "volume": 1.0,
+      "description": "JARVIS's slow, sophisticated British voice"
+    },
+    "soft": {
+      "name": "Soft",
+      "rate": 0.95,
+      "pitch": 1.0,
+      "volume": 0.8,
+      "description": "Gentle, soft-spoken voice"
+    },
+    "energetic": {
+      "name": "Energetic",
+      "rate": 1.2,
+      "pitch": 1.15,
+      "volume": 1.0,
+      "description": "Fast, energetic voice"
+    }
+  },
+  "modeVoiceMap": {
+    "orion": "default",
+    "friday": "playful",
+    "jarvis": "formal",
+    "analyst": "default",
+    "coder": "default",
+    "business": "default",
+    "deep_work": "default",
+    "learning": "soft"
+  },
+  "enabled": false,
+  "defaultVoice": "default"
+}

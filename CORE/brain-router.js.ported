@@ -1,0 +1,206 @@
+/**
+ * ORION — Brain Router
+ * Smart routing logic: decides which brain (local or cloud) handles each task.
+ * 
+ * Routing logic:
+ * - Internet/research tasks → Cloud (Grok for real-time, Claude for deep analysis)
+ * - Reasoning tasks (logic, math, planning) → Ollama deepseek-r1:7b
+ * - Code tasks → Ollama qwen2.5-coder:3b
+ * - Simple/quick → Ollama qwen2.5-coder:1.5b
+ * - General manager tasks → Ollama qwen3:4b
+ * - Ollama offline → Groq → Gemini fallback
+ */
+
+class BrainRouter {
+    constructor(settings, ollamaBrain) {
+        this.settings = settings;
+        this.ollama = ollamaBrain;
+        this.routingConfig = settings.routing || {};
+    }
+
+    /**
+     * Determine if a task requires internet/cloud access
+     * Only returns true for explicit research/browsing intent, not code tasks
+     */
+    isInternetTask(message) {
+        const msg = message.toLowerCase();
+        
+        // If it's a code/build task, NEVER route to internet brain
+        if (this.isCodeTask(message)) return false;
+
+        const internetKeywords = [
+            'search for', 'browse the', 'google', 'look up', 'find online',
+            'check the web', 'latest news', 'current news', 'trending now',
+            'what is happening', 'stock price', 'weather today', 'live score',
+            'real-time', 'recently released', 'update on', 'status of',
+            'live data', 'research on', 'gather info about', 'collect data from',
+            'fetch from web', 'scrape website', 'current events',
+            'what is the latest', 'trending on', 'check online',
+            'niche', 'famous', 'trending', 'popular', 'market', 'profit', 'selling',
+            'current', 'latest', 'recent', 'news', 'happening', 'around', 'india'
+        ];
+        return internetKeywords.some(keyword => msg.includes(keyword));
+    }
+
+    /**
+     * Determine if a task is code-related
+     */
+    isCodeTask(message) {
+        const msg = message.toLowerCase();
+        const codeKeywords = [
+            'code', 'function', 'script', 'bug', 'debug', 'build', 'website',
+            'html', 'css', 'javascript', 'python', 'api', 'database', 'file',
+            'edit', 'create file', 'project', 'program', 'deploy', 'git',
+            'github', 'npm', 'package', 'install', 'framework', 'library',
+            'component', 'react', 'vue', 'node', 'express', 'endpoint',
+            'write a', 'make a', 'create a', 'fix the', 'update the'
+        ];
+        return codeKeywords.some(keyword => msg.includes(keyword));
+    }
+
+    /**
+     * Determine if a task requires reasoning (logic, math, planning)
+     * Routes to deepseek-r1:7b
+     */
+    isReasoningTask(message) {
+        const msg = message.toLowerCase();
+        const reasoningKeywords = ['logic', 'math', 'calculate', 'reason', 'plan', 'complex', 'solve', 'proof', 'algorithm', 'deduce', 'analyze'];
+        return reasoningKeywords.some(kw => msg.includes(kw));
+    }
+
+    /**
+     * Determine if a task is simple/quick (good for fast model)
+     * (good for fast model)
+     */
+    isSimpleTask(message) {
+        const msg = message.toLowerCase().trim();
+        const wordCount = msg.split(/\s+/).length;
+        // Short queries ≤15 words → fast model
+        if (wordCount <= 15) return true;
+        // Question starters → fast model
+        const questionStarters = ['what', 'which', 'who', 'when', 'where', 'why', 'how', 'is', 'are', 'do', 'does', 'can', 'will', 'should'];
+        const firstWord = msg.split(/\s+/)[0];
+        if (questionStarters.includes(firstWord)) return true;
+        // Original simple patterns as fallback
+        const simplePatterns = [
+            /^hi$|^hello$|^hey$|^how are you|^what's up|^sup$|^yo$/,
+            /^thanks?|^ok$|^sure$|^good|^great$|^nice$/,
+            /^what is\b|^define\b|^meaning of|^explain\b/,
+            /^how do i\b|^how to\b|^can you\b/
+        ];
+        return simplePatterns.some(pattern => pattern.test(msg)) || message.length < 25;
+    }
+
+    /**
+     * Get the best brain for a task
+     */
+    route(message) {
+        const ollamaAvailable = this.ollama?.available || false;
+
+        // Internet tasks → Cloud (if routing config says so)
+        if (this.isInternetTask(message) && this.routingConfig.internetTasksUseCloud) {
+            // Grok is best for real-time search
+            if (this.settings.openrouter?.grokKey && !this.settings.openrouter.grokKey.includes('PASTE')) {
+                return {
+                    brain: 'openrouter-grok',
+                    model: this.settings.openrouter.grokModel || 'xai/grok-2',
+                    label: ' Grok (Real-time)',
+                    source: 'cloud'
+                };
+            }
+            // Fallback to Claude for research
+            if (this.settings.openrouter?.claudeKey && !this.settings.openrouter.claudeKey.includes('PASTE')) {
+                return {
+                    brain: 'openrouter-claude',
+                    model: this.settings.openrouter.claudeModel || 'anthropic/claude-3.5-sonnet',
+                    label: '🧠 Claude (Research)',
+                    source: 'cloud'
+                };
+            }
+        }
+
+        // Local tasks — use Ollama if available
+        if (ollamaAvailable && this.routingConfig.localFirst) {
+            // Reasoning tasks first (logic, math, planning)
+            if (this.isReasoningTask(message)) {
+                return {
+                    brain: 'ollama',
+                    model: this.ollama.getModelForTask('reasoning'),
+                    label: '🧠 Ollama (Reasoning)',
+                    source: 'local'
+                };
+            }
+            if (this.isSimpleTask(message)) {
+                return {
+                    brain: 'ollama',
+                    model: this.ollama.getModelForTask('fast'),
+                    label: '⚡ Ollama (Fast)',
+                    source: 'local'
+                };
+            }
+            if (this.isCodeTask(message)) {
+                return {
+                    brain: 'ollama',
+                    model: this.ollama.getModelForTask('coder'),
+                    label: '💻 Ollama (Coder)',
+                    source: 'local'
+                };
+            }
+            return {
+                brain: 'ollama',
+                model: this.ollama.getModelForTask('manager'),
+                label: '🧠 Ollama (Manager)',
+                source: 'local'
+            };
+        }
+
+        // Ollama offline — fallback chain
+        return this.getFallbackBrain();
+    }
+
+    /**
+     * Get the best available cloud fallback
+     */
+    getFallbackBrain() {
+        if (this.settings.groq?.apiKey && !this.settings.groq.apiKey.includes('PASTE')) {
+            return {
+                brain: 'groq',
+                model: this.settings.groq.model || 'llama-3.3-70b-versatile',
+                label: '🚀 Groq',
+                source: 'cloud'
+            };
+        }
+        if (this.settings.openrouter?.claudeKey && !this.settings.openrouter.claudeKey.includes('PASTE')) {
+            return {
+                brain: 'openrouter-claude',
+                model: this.settings.openrouter.claudeModel || 'anthropic/claude-3.5-sonnet',
+                label: '🧠 Claude',
+                source: 'cloud'
+            };
+        }
+        if (this.settings.openrouter?.grokKey && !this.settings.openrouter.grokKey.includes('PASTE')) {
+            return {
+                brain: 'openrouter-grok',
+                model: this.settings.openrouter.grokModel || 'xai/grok-2',
+                label: '🔍 Grok',
+                source: 'cloud'
+            };
+        }
+        if (this.settings.gemini?.apiKey && !this.settings.gemini.apiKey.includes('PASTE')) {
+            return {
+                brain: 'gemini',
+                model: this.settings.gemini.model || 'gemini-2.0-flash',
+                label: '️ Gemini',
+                source: 'cloud'
+            };
+        }
+        return {
+            brain: 'error',
+            model: 'none',
+            label: '❌ No Brain Available',
+            source: 'none'
+        };
+    }
+}
+
+module.exports = BrainRouter;

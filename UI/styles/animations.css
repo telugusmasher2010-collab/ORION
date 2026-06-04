@@ -1,0 +1,39 @@
+/* ============================================================
+   ORION — Animations v3.0
+   Minimal, performant animations only
+   ============================================================ */
+
+/* Fade In */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease forwards;
+}
+
+/* Blink */
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0.3; }
+}
+
+/* Message Slide In */
+@keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-15px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes slideInRight {
+    from { opacity: 0; transform: translateX(15px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.orion-message.fade-in {
+    animation: slideInLeft 0.3s ease forwards;
+}
+
+.user-message.fade-in {
+    animation: slideInRight 0.3s ease forwards;
+}

@@ -1,0 +1,101 @@
+/**
+ * ORION — Scheduler Agent
+ * Reminders, deadlines, task planning, proactive alerts.
+ */
+
+const Agent = require('./agent');
+const fs = require('fs');
+const path = require('path');
+
+const MEMORY_DIR = path.join(__dirname, '..', 'MEMORY');
+const SCHEDULE_FILE = path.join(MEMORY_DIR, 'schedule.json');
+
+class SchedulerAgent extends Agent {
+    constructor() {
+        super({
+            id: 'scheduler',
+            name: 'Scheduler',
+            description: 'Manages reminders, deadlines, task planning, and proactive alerts.',
+            systemPrompt: `You are ORION's Scheduler Agent. You organize Abhi's time and keep him on track.
+
+CAPABILITIES:
+1. Set reminders with specific times and dates
+2. Create task lists with priorities and deadlines
+3. Plan daily/weekly schedules
+4. Send proactive alerts about upcoming deadlines
+5. Break large goals into daily actionable tasks
+
+RULES:
+1. Always confirm when a reminder/schedule is set
+2. Use 24-hour format for times
+3. Prioritize revenue-generating tasks
+4. If a deadline is unrealistic, say so and propose a realistic one
+5. Always include the date and time in your confirmation
+6. Format tasks as: [TASK] Description | [DUE] Date Time | [PRIORITY] High/Medium/Low
+
+When asked to create a schedule or reminder, output a structured plan.`
+        });
+    }
+
+    /**
+     * Load saved schedule — creates directory and file if needed
+     */
+    loadSchedule() {
+        try {
+            // Ensure MEMORY directory exists
+            if (!fs.existsSync(MEMORY_DIR)) {
+                fs.mkdirSync(MEMORY_DIR, { recursive: true });
+            }
+
+            if (fs.existsSync(SCHEDULE_FILE)) {
+                const data = fs.readFileSync(SCHEDULE_FILE, 'utf-8');
+                return JSON.parse(data);
+            }
+        } catch (err) {
+            console.error(`[SchedulerAgent] Failed to load schedule: ${err.message}`);
+        }
+        return { tasks: [], reminders: [] };
+    }
+
+    /**
+     * Save schedule to disk
+     */
+    saveSchedule(schedule) {
+        try {
+            if (!fs.existsSync(MEMORY_DIR)) {
+                fs.mkdirSync(MEMORY_DIR, { recursive: true });
+            }
+            fs.writeFileSync(SCHEDULE_FILE, JSON.stringify(schedule, null, 2), 'utf-8');
+        } catch (err) {
+            console.error(`[SchedulerAgent] Failed to save schedule: ${err.message}`);
+        }
+    }
+
+    /**
+     * Get upcoming tasks — safely handles malformed dates
+     */
+    getUpcoming(limit = 10) {
+        const schedule = this.loadSchedule();
+        const now = new Date();
+
+        return schedule.tasks
+            .filter(t => {
+                try {
+                    const dueDate = new Date(t.due);
+                    return !isNaN(dueDate.getTime()) && dueDate >= now;
+                } catch {
+                    return false;
+                }
+            })
+            .sort((a, b) => {
+                try {
+                    return new Date(a.due) - new Date(b.due);
+                } catch {
+                    return 0;
+                }
+            })
+            .slice(0, limit);
+    }
+}
+
+module.exports = SchedulerAgent;

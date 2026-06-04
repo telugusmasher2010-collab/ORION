@@ -1,0 +1,226 @@
+# ORION — Main Summary
+
+## Project Overview
+ORION is a futuristic AI desktop assistant built with Electron that serves as a multi-agent operator for coding, business management, scheduling, and general conversation. It uses cloud AI APIs (Groq, Gemini, OpenRouter) with a 3-column "Mission Control" UI.
+
+---
+
+## Session History — What We Did
+
+### Phase 1: Bug Fixes (ORION 2.0 Foundation)
+
+**Problem:** Session tracking was broken — new sessions returned ID 0, messages weren't saving to correct sessions, and chat history didn't restore properly.
+
+**Fixes Applied:**
+| File | Fix |
+|------|-----|
+| `CORE/memory-engine.js` | Changed `createSession` to use `SELECT MAX(id)` instead of `last_insert_rowid()` (which returned 0) |
+| `preload.js` | Fixed async handling so session ID is properly awaited before use |
+| `preload.js` | Added fallback: return ID `1` if no session exists |
+| `main.js` | Added fallback: auto-create session if none exists on `getCurrentSessionId` |
+| `main.js` | Added `[Main]` debug logging throughout chat flow |
+| `preload.js` | Added `[Preload]` debug logging throughout chat flow |
+| `renderer.js` | Added `[Renderer]` debug logging throughout chat flow |
+| `CORE/ai-brain.js` | Added `[AIBrain]` debug logging throughout chat flow |
+| `CORE/memory-engine.js` | Added `[Memory]` debug logging for session ops |
+
+### Phase 2: ORION 3.0 UI (Current — In Progress)
+
+**New UI Structure 5 (Advanced Mission Control):**
+
+**Day 1 — Complete:**
+| Task | Files |
+|------|-------|
+| 3-column HTML layout | `UI/index2.html` — sidebar, center panel, right panel |
+| Navigation sidebar | 9 views: Dashboard, Tasks, Clients, Leads, Systems, Calendar, Analytics, Logs, Settings |
+| SVG progress ring | Animated 0→15% on load |
+| Start Now / Quick actions | Generate, Write, Analyze, Email buttons |
+| Right context panels | Session info, AI recommendations, system status, recent activity |
+| Custom frameless titlebar | Minimize, Maximize, Close with status indicator |
+| CSS animations | Hover glows, slide-in, progress ring pulse |
+| Chat message styling | User messages (reversed, purple) + ORION messages (cyan) |
+| View switching | `orion-3.js` manages 9 views + `switchView()` function |
+| Main process | Updated to load `index2.html` instead of `index.html` |
+
+---
+
+## Architecture — The Chat Flow
+
+```
+User types message
+        │
+        ▼
+renderer.js: sendMessage()
+        │  window.orion.chat(message, sessionId)
+        ▼
+preload.js: chat(message)
+        │  ipcRenderer.invoke('orion:chat', message, sessionId)
+        ▼
+main.js: orion:chat handler
+        │  brain.asyncChat(finalMessage, history, onChunk)
+        ▼
+ai-brain.js: asyncChat()
+        ├── agentRegistry.executeTask() → Agent handles it? → Return response
+        └── router.route() → _groqStream() → Groq API → Stream response
+        │
+        ▼
+Returns { response, mode, brain } to renderer
+        │
+        ▼
+renderer.js: Displays response in chat
+```
+
+### Current AI Routing (settings.json)
+```
+localFirst: false → Ollama Offline → Groq (default brain)
+                                       ├── Fallback: OpenRouter Claude
+                                       ├── Fallback: OpenRouter Grok
+                                       └── Fallback: Gemini
+```
+
+---
+
+## Files Structure
+```
+C:\ORION\
+├── main.js                          # Electron main, IPC handlers, init
+├── preload.js                       # Secure IPC bridge (window.orion.*)
+├── ORION-SUMMARY.md                 # This file
+│
+├── CORE\
+│   ├── ai-brain.js                  # AI brain manager (Groq/Gemini/OpenRouter)
+│   ├── brain-router.js              # Routing logic (local vs cloud)
+│   ├── memory-engine.js             # SQLite database (sql.js)
+│   ├── personality-engine.js        # Mode/personality management
+│   ├── agent-registry.js            # Sub-agent routing
+│   ├── agent.js                     # Base agent class
+│   ├── coder-agent.js               # Code generation agent
+│   ├── business-agent.js            # Business management agent
+│   ├── scheduler-agent.js           # Scheduling/reminders agent
+│   ├── ollama.js                    # Ollama local connection
+│   ├── argument-engine.js           # Critical thinking engine
+│   ├── context-manager.js           # Session context tracking
+│   ├── goal-tracker.js              # Goal management
+│   ├── suggestion-engine.js         # Proactive suggestions
+│   └── user-profile.js              # User learning/preferences
+│
+├── UI\
+│   ├── index2.html                  # NEW ORION 3.0 UI (3-column)
+│   ├── renderer.js                  # UI logic (chat, voice, goals, sessions)
+│   ├── orion-3.js                   # New UI interactions (views, sidebar, progress)
+│   └── styles\
+│       ├── orion-theme.css          # Base dark theme (1362 lines)
+│       └── orion-3.css              # New UI styles (1342 lines)
+│
+├── CONFIG\
+│   └── settings.json                # API keys, routing config
+│
+└── MEMORY\
+    └── orion.db                     # SQLite database (auto-created)
+```
+
+---
+
+## Technology Stack
+| Component | Technology |
+|-----------|-----------|
+| Desktop shell | Electron ^35.0.0 |
+| Runtime | Node.js v24.15.0 |
+| Database | sql.js (SQLite, pure JS) |
+| AI (Cloud) | Groq (llama-3.3-70b), Gemini 2.0 Flash |
+| AI (Cloud alt) | OpenRouter (Claude, Grok) |
+| AI (Local) | Ollama (disabled, hardware limitations) |
+| Voice input | Web Speech Recognition API |
+| Voice output | Web Speech Synthesis API |
+
+---
+
+## API Status (Verified Working 2026-05-12)
+| Service | Credential | Status |
+|---------|-----------|--------|
+| Groq | `gsk_IMwQ...` | ✅ 200 OK, streaming works |
+| Gemini | `AIzaSyAh...` | ✅ Configured |
+| OpenRouter Claude | `sk-or-v1...` | ✅ Configured |
+| OpenRouter Grok | `sk-or-v1...` | ✅ Configured |
+| Ollama | N/A | ❌ Intentionally disabled |
+
+---
+
+## 6-Phase Roadmap (4 Months)
+
+```
+WEEK 1-4     WEEK 5-8     WEEK 9-12    WEEK 13-14   WEEK 15-16
+ORION 3.0    ORION 4.0    ORION 5.0    ORION 6.0    ORION 7.0
+──────────   ──────────   ──────────   ──────────    ──────────
+New UI       Voice        Automation   Learning      Final
+Dashboard    Waveform     Scheduled    User Profile  Polish &
+Data Wiring  Mic Toggle   Actions      Adaptation    Release
+──────────   ──────────   ──────────   ──────────    ──────────
+🏗️ WIP       ⏳ Future    ⏳ Future    ⏳ Future     ⏳ Future
+```
+
+---
+
+## Day-by-Day Progress (ORION 3.0)
+
+| Day | Task | Status |
+|-----|------|--------|
+| Day 1 | 3-column HTML skeleton + CSS + basic JS | ✅ Complete |
+| Day 2 | Wire data: goals, projects, suggestions, system status into panels | ⏳ Pending |
+| Day 3 | Voice waveform UI + mic animations | ⏳ Pending |
+| Day 4 | View transitions + loading states | ⏳ Pending |
+| Day 5 | Responsive design / mobile | ⏳ Pending |
+| Day 6 | Integration testing | ⏳ Pending |
+| Day 7 | Bug fixes + polish | ⏳ Pending |
+
+---
+
+## Key Technical Decisions Made
+
+1. **New file** (`index2.html`) instead of replacing old UI — safe parallel development
+2. **Cloud-first** routing — `localFirst: false`, no Ollama dependency
+3. **3-column layout** — Structure 5 (Advanced Mission Control)
+4. **Chat always visible** — Below view-container, not inside any view
+5. **Streaming responses** — SSE from Groq, chunk-by-chunk to UI
+6. **sql.js** for database — pure JS, zero native dependencies
+7. **`contextIsolation: true`** — security best practice, IPC bridge via preload
+8. **`SELECT MAX(id)`** for last insert ID — sql.js `last_insert_rowid()` bug workaround
+
+---
+
+## Known Issues
+
+| Issue | Impact | Investigation |
+|-------|--------|---------------|
+| Chat sends but no reply | **HIGH** — blocks core functionality | API confirmed working (200 OK). Groq streaming works. Code logic appears correct. Need user to run app and share F12 console output to pinpoint |
+| Duplicate `groq-status` ID in HTML | LOW — cosmetic | Line 273 (settings view) and line 458 (settings overlay) |
+| renderer.js `showView()` vs orion-3.js `switchView()` conflict | MEDIUM — view switching inconsistency | Legacy code runs before new UI loads, then new UI overrides styles |
+
+---
+
+## Settings Configuration
+```json
+{
+  "ollama": { "enabled": false },
+  "groq": { "apiKey": "gsk_IMwQ...", "model": "llama-3.3-70b-versatile" },
+  "gemini": { "apiKey": "AIzaSyAh...", "model": "gemini-2.0-flash" },
+  "openrouter": {
+    "claudeKey": "sk-or-v1...",
+    "grokKey": "sk-or-v1...",
+    "claudeModel": "claude-3.5-sonnet",
+    "grokModel": "xai/grok-2"
+  },
+  "routing": { "localFirst": false, "internetTasksUseCloud": true },
+  "defaultBrain": "groq"
+}
+```
+
+---
+
+## Next Actions
+
+1. **Verify no-reply bug** — user runs app, opens F12 console, shares output
+2. **Day 2 wiring** — connect goals, system status, session data to UI panels
+3. **Fix duplicate IDs** in index2.html
+4. **Resolve view system conflict** between renderer.js and orion-3.js
+5. **Continue 14-day ORION 3.0 rollout** per timeline

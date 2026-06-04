@@ -1,0 +1,291 @@
+/**
+ * ORION — Suggestion Engine
+ * Proactively suggests things, follows up on goals, reminds about tasks.
+ */
+
+class SuggestionEngine {
+    constructor(memoryEngine, contextManager, userProfile) {
+        this.memory = memoryEngine;
+        this.context = contextManager;
+        this.userProfile = userProfile;
+        this.suggestionHistory = [];
+        this.lastSuggestionTime = null;
+        this.dailyCheckInDone = false;
+    }
+
+    /**
+     * Get suggestions based on current context
+     */
+    getSuggestions() {
+        const suggestions = [];
+
+        const activeGoals = this.memory.getActiveGoals();
+        if (activeGoals.length > 0) {
+            activeGoals.forEach(goal => {
+                if (goal.deadline) {
+                    const deadline = new Date(goal.deadline);
+                    const now = new Date();
+                    const hoursUntil = (deadline - now) / (1000 * 60 * 60);
+
+                    if (hoursUntil < 24 && hoursUntil > 0) {
+                        suggestions.push({
+                            type: 'deadline',
+                            priority: 'high',
+                            message: `⏰ "${goal.title}" is due in ${Math.round(hoursUntil)} hours!`,
+                            action: 'complete_goal',
+                            goalId: goal.id
+                        });
+                    }
+                }
+            });
+        }
+
+        const followUps = this.context.getDueFollowUps();
+        if (followUps.length > 0) {
+            followUps.forEach(f => {
+                suggestions.push({
+                    type: 'follow_up',
+                    priority: 'medium',
+                    message: f.context,
+                    action: 'handle_follow_up',
+                    followUpId: f.id
+                });
+            });
+        }
+
+        const activeTask = this.context.getActiveTask();
+        if (activeTask && activeTask.status === 'active') {
+            const started = new Date(activeTask.startedAt);
+            const now = new Date();
+            const minutesActive = (now - started) / (1000 * 60);
+
+            if (minutesActive > 120) {
+                suggestions.push({
+                    type: 'break',
+                    priority: 'low',
+                    message: `😴 You've been on "${activeTask.task}" for ${Math.round(minutesActive)} minutes. Take a break?`,
+                    action: 'suggest_break'
+                });
+            }
+        }
+
+        return suggestions;
+    }
+
+    /**
+     * Suggest based on recent conversation
+     */
+    suggestBasedOnHistory() {
+        const recentContext = this.context.getContext(5);
+
+        if (recentContext.length === 0) {
+            return null;
+        }
+
+        const lastUserMessage = recentContext
+            .filter(m => m.role === 'user')
+            .pop();
+
+        if (!lastUserMessage) {
+            return null;
+        }
+
+        const unfinishedPatterns = [
+            /finish the/i,
+            /complete the/i,
+            /continue.*work/i,
+            /still need to/i,
+            /haven't finished/i
+        ];
+
+        for (const pattern of unfinishedPatterns) {
+            if (pattern.test(lastUserMessage.content)) {
+                return {
+                    type: 'continuation',
+                    priority: 'medium',
+                    message: 'Want to continue where we left off?',
+                    action: 'resume_task'
+                };
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Generate follow-up reminder
+     */
+    generateFollowUp(context, minutes = 60) {
+        const followUpId = this.context.storeFollowUp(context, minutes);
+        return {
+            followUpId,
+            message: `I'll remind you about: "${context}" in ${minutes} minutes.`
+        };
+    }
+
+    /**
+     * Create a scheduled follow-up from conversation
+     */
+    createFollowUpFromMessage(message) {
+        const patterns = [
+            { regex: /remind me (?:in |after )?(\d+) (minutes|hours|days)/i, extractTime: true },
+            { regex: /don't forget|remember to|remind me to (.+)/i, extractAction: true }
+        ];
+
+        for (const pattern of patterns) {
+            const match = message.match(pattern.regex);
+            if (match) {
+                let minutes = 60;
+                if (pattern.extractTime && match[1] && match[2]) {
+                    const amount = parseInt(match[1]);
+                    const unit = match[2].toLowerCase();
+                    if (unit.includes('hour')) minutes = amount * 60;
+                    else if (unit.includes('day')) minutes = amount * 60 * 24;
+                    else minutes = amount;
+                }
+
+                const action = pattern.extractAction ? match[1] : 'check on this';
+                return this.generateFollowUp(action, minutes);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Daily check-in suggestions
+     */
+    getDailyCheckIn() {
+        if (this.dailyCheckInDone) {
+            return null;
+        }
+
+        const activeGoals = this.memory.getActiveGoals();
+        const suggestions = [];
+
+        if (activeGoals.length > 0) {
+            suggestions.push(`📋 You have ${activeGoals.length} active goal(s).`);
+        }
+
+        const followUps = this.context.getPendingFollowUps();
+        if (followUps.length > 0) {
+            suggestions.push(`⏰ ${followUps.length} pending follow-up(s).`);
+        }
+
+        if (suggestions.length > 0) {
+            return {
+                type: 'daily_checkin',
+                priority: 'high',
+                message: suggestions.join(' '),
+                actions: ['view_goals', 'view_follow_ups']
+            };
+        }
+
+        this.dailyCheckInDone = true;
+        return null;
+    }
+
+    /**
+     * Suggest learning opportunity
+     */
+    suggestLearning(topic) {
+        return {
+            type: 'learning',
+            priority: 'low',
+            message: `Want me to explain "${topic}" in detail?`,
+            action: 'explain_topic'
+        };
+    }
+
+    /**
+     * Suggest break after work session
+     */
+    suggestBreak(reason = 'work') {
+        const breakOptions = [
+            '☕ Quick coffee break?',
+            '🚶 5-minute stretch break?',
+            '💧 Get some water?',
+            '👀 Rest your eyes for a minute?'
+        ];
+
+        return {
+            type: 'break',
+            priority: 'low',
+            message: breakOptions[Math.floor(Math.random() * breakOptions.length)],
+            action: 'take_break'
+        };
+    }
+
+    /**
+     * Get proactive suggestions
+     */
+    getProactiveSuggestions() {
+        const suggestions = [];
+
+        const dueFollowUps = this.context.getDueFollowUps();
+        if (dueFollowUps.length > 0) {
+            dueFollowUps.forEach(f => {
+                suggestions.push({
+                    type: 'reminder',
+                    priority: 'high',
+                    message: `⏰ ${f.context}`,
+                    followUpId: f.id
+                });
+                this.context.dismissFollowUp(f.id);
+            });
+        }
+
+        const activeTask = this.context.getActiveTask();
+        if (activeTask) {
+            const started = new Date(activeTask.startedAt);
+            const hoursActive = (new Date() - started) / (1000 * 60 * 60);
+
+            if (hoursActive > 2) {
+                suggestions.push({
+                    type: 'break_suggestion',
+                    priority: 'medium',
+                    message: `You've been working on "${activeTask.task}" for ${Math.round(hoursActive * 60)} minutes. Need a break?`
+                });
+            }
+        }
+
+        return suggestions;
+    }
+
+    /**
+     * Log suggestion interaction
+     */
+    logSuggestion(suggestion, accepted) {
+        this.suggestionHistory.push({
+            suggestion: suggestion.message,
+            type: suggestion.type,
+            accepted,
+            timestamp: new Date().toISOString()
+        });
+
+        if (this.suggestionHistory.length > 50) {
+            this.suggestionHistory = this.suggestionHistory.slice(-50);
+        }
+    }
+
+    /**
+     * Get suggestion stats
+     */
+    getStats() {
+        const accepted = this.suggestionHistory.filter(s => s.accepted).length;
+        return {
+            totalSuggestions: this.suggestionHistory.length,
+            acceptedSuggestions: accepted,
+            acceptanceRate: accepted > 0 ? ((accepted / this.suggestionHistory.length) * 100).toFixed(1) + '%' : '0%'
+        };
+    }
+
+    /**
+     * Reset daily check-in (for new day)
+     */
+    resetDailyCheckIn() {
+        this.dailyCheckInDone = false;
+    }
+}
+
+module.exports = SuggestionEngine;

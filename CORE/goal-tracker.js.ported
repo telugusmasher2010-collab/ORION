@@ -1,0 +1,237 @@
+/**
+ * ORION — Goal Tracker
+ * Tracks goals, deadlines, and provides accountability.
+ */
+
+class GoalTracker {
+    constructor(memoryEngine, contextManager) {
+        this.memory = memoryEngine;
+        this.context = contextManager;
+    }
+
+    /**
+     * Create a new goal
+     */
+    createGoal(title, description = '', deadline = null) {
+        const goalId = this.memory.createGoal(title, description, deadline);
+
+        if (deadline) {
+            this.context.storeFollowUp(`Goal deadline: ${title}`, this._minutesUntilDeadline(deadline));
+        }
+
+        console.log(`[GoalTracker] Created goal: ${title} (ID: ${goalId})`);
+        return {
+            id: goalId,
+            title,
+            description,
+            deadline,
+            status: 'active',
+            createdAt: new Date().toISOString()
+        };
+    }
+
+    /**
+     * Get active goals
+     */
+    getActiveGoals() {
+        return this.memory.getActiveGoals();
+    }
+
+    /**
+     * Get all goals
+     */
+    getAllGoals() {
+        return this.memory.getAllGoals();
+    }
+
+    /**
+     * Get overdue goals
+     */
+    getOverdueGoals() {
+        const activeGoals = this.memory.getActiveGoals();
+        const now = new Date();
+
+        return activeGoals.filter(goal => {
+            if (!goal.deadline) return false;
+            return new Date(goal.deadline) < now;
+        });
+    }
+
+    /**
+     * Get upcoming deadlines
+     */
+    getUpcomingDeadlines(days = 7) {
+        const activeGoals = this.memory.getActiveGoals();
+        const now = new Date();
+        const futureDate = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+
+        return activeGoals.filter(goal => {
+            if (!goal.deadline) return false;
+            const deadline = new Date(goal.deadline);
+            return deadline >= now && deadline <= futureDate;
+        }).sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
+    }
+
+    /**
+     * Complete a goal
+     */
+    completeGoal(goalId) {
+        this.memory.completeGoal(goalId);
+        console.log(`[GoalTracker] Completed goal ID: ${goalId}`);
+
+        const activeGoals = this.memory.getActiveGoals();
+        const completed = activeGoals.length === 0 || !activeGoals.find(g => g.id === goalId);
+
+        return {
+            success: true,
+            message: completed ? 'Goal completed! 🎉' : 'Could not complete goal'
+        };
+    }
+
+    /**
+     * Fail a goal
+     */
+    failGoal(goalId, reason = '') {
+        this.memory.failGoal(goalId, reason);
+        console.log(`[GoalTracker] Failed goal ID: ${goalId}, reason: ${reason}`);
+
+        return {
+            success: true,
+            message: 'Goal marked as failed. What did we learn?'
+        };
+    }
+
+    /**
+     * Delete a goal
+     */
+    deleteGoal(goalId) {
+        this.memory.deleteGoal(goalId);
+        return { success: true };
+    }
+
+    /**
+     * Update goal details
+     */
+    updateGoal(goalId, updates) {
+        const goals = this.memory.getAllGoals();
+        const goal = goals.find(g => g.id === goalId);
+
+        if (!goal) {
+            return { success: false, error: 'Goal not found' };
+        }
+
+        if (updates.title) {
+            this.memory.db.run('UPDATE goals SET title = ? WHERE id = ?', [updates.title, goalId]);
+        }
+        if (updates.description !== undefined) {
+            this.memory.db.run('UPDATE goals SET description = ? WHERE id = ?', [updates.description, goalId]);
+        }
+        if (updates.deadline) {
+            this.memory.db.run('UPDATE goals SET deadline = ? WHERE id = ?', [updates.deadline, goalId]);
+        }
+
+        this.memory._persist();
+        return { success: true };
+    }
+
+    /**
+     * Check deadlines and generate reminders
+     */
+    checkDeadlines() {
+        const reminders = [];
+
+        const overdue = this.getOverdueGoals();
+        overdue.forEach(goal => {
+            reminders.push({
+                type: 'overdue',
+                priority: 'high',
+                message: `⚠️ Goal "${goal.title}" is overdue!`,
+                goalId: goal.id,
+                deadline: goal.deadline
+            });
+        });
+
+        const upcoming = this.getUpcomingDeadlines(24);
+        upcoming.forEach(goal => {
+            const hoursLeft = this._hoursUntilDeadline(goal.deadline);
+            reminders.push({
+                type: 'upcoming',
+                priority: hoursLeft < 6 ? 'high' : 'medium',
+                message: `📅 "${goal.title}" due in ${hoursLeft} hours`,
+                goalId: goal.id,
+                deadline: goal.deadline
+            });
+        });
+
+        return reminders;
+    }
+
+    /**
+     * Get goal stats
+     */
+    getStats() {
+        const allGoals = this.memory.getAllGoals();
+        const active = allGoals.filter(g => g.status === 'active');
+        const completed = allGoals.filter(g => g.status === 'completed');
+        const failed = allGoals.filter(g => g.status === 'failed');
+
+        const overdue = this.getOverdueGoals();
+        const upcoming = this.getUpcomingDeadlines(7);
+
+        return {
+            total: allGoals.length,
+            active: active.length,
+            completed: completed.length,
+            failed: failed.length,
+            overdue: overdue.length,
+            upcoming: upcoming.length,
+            completionRate: allGoals.length > 0
+                ? ((completed.length / allGoals.length) * 100).toFixed(1) + '%'
+                : '0%'
+        };
+    }
+
+    /**
+     * Get goal by ID
+     */
+    getGoal(goalId) {
+        const goals = this.memory.getAllGoals();
+        return goals.find(g => g.id === goalId) || null;
+    }
+
+    /**
+     * Get goals as user's agenda for the day
+     */
+    getTodaysAgenda() {
+        const activeGoals = this.memory.getActiveGoals();
+        const overdue = this.getOverdueGoals();
+        const upcoming = this.getUpcomingDeadlines(1);
+
+        return {
+            overdue: overdue,
+            today: upcoming,
+            allActive: activeGoals,
+            hasUrgent: overdue.length > 0 || upcoming.length > 0
+        };
+    }
+
+    /**
+     * Convert deadline to minutes
+     */
+    _minutesUntilDeadline(deadline) {
+        const deadlineDate = new Date(deadline);
+        const now = new Date();
+        return Math.max(1, Math.round((deadlineDate - now) / (1000 * 60)));
+    }
+
+    /**
+     * Convert deadline to hours
+     */
+    _hoursUntilDeadline(deadline) {
+        const deadlineDate = new Date(deadline);
+        const now = new Date();
+        return Math.max(0, Math.round((deadlineDate - now) / (1000 * 60 * 60)));
+    }
+}
+
+module.exports = GoalTracker;

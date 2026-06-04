@@ -1,0 +1,247 @@
+/**
+ * ORION — Context Manager
+ * Manages short-term working memory, active tasks, and conversation continuity.
+ */
+
+class ContextManager {
+    constructor(memoryEngine) {
+        this.memory = memoryEngine;
+        this.activeTask = null;
+        this.conversationContext = [];
+        this.currentSessionId = null;
+    }
+
+    /**
+     * Set current session
+     */
+    setSession(sessionId) {
+        this.currentSessionId = sessionId;
+    }
+
+    /**
+     * Get current session
+     */
+    getSession() {
+        return this.currentSessionId;
+    }
+
+    /**
+     * Set active task
+     */
+    setActiveTask(task, expiresInMinutes = 120) {
+        this.activeTask = {
+            task,
+            startedAt: new Date().toISOString(),
+            status: 'active'
+        };
+        if (this.currentSessionId) {
+            this.memory.setContext(this.currentSessionId, 'active_task', JSON.stringify(this.activeTask), expiresInMinutes);
+        }
+    }
+
+    /**
+     * Get active task
+     */
+    getActiveTask() {
+        if (this.activeTask) return this.activeTask;
+        if (this.currentSessionId) {
+            const stored = this.memory.getContext(this.currentSessionId, 'active_task');
+            if (stored) {
+                try {
+                    this.activeTask = JSON.parse(stored);
+                    return this.activeTask;
+                } catch (e) {
+                    return null;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Clear active task
+     */
+    clearActiveTask() {
+        this.activeTask = null;
+    }
+
+    /**
+     * Add to conversation context (last N messages)
+     */
+    addToContext(role, content) {
+        this.conversationContext.push({ role, content, timestamp: new Date().toISOString() });
+        if (this.conversationContext.length > 20) {
+            this.conversationContext = this.conversationContext.slice(-20);
+        }
+    }
+
+    /**
+     * Get conversation context
+     */
+    getContext(limit = 10) {
+        return this.conversationContext.slice(-limit);
+    }
+
+    /**
+     * Clear conversation context
+     */
+    clearContext() {
+        this.conversationContext = [];
+    }
+
+    /**
+     * Add context key-value for session
+     */
+    addSessionContext(key, value, expiresInMinutes = 60) {
+        if (this.currentSessionId) {
+            this.memory.setContext(this.currentSessionId, key, value, expiresInMinutes);
+        }
+    }
+
+    /**
+     * Get session context
+     */
+    getSessionContext(key) {
+        if (this.currentSessionId) {
+            return this.memory.getContext(this.currentSessionId, key);
+        }
+        return null;
+    }
+
+    /**
+     * Store a follow-up reminder
+     */
+    storeFollowUp(context, remindAtMinutes = 60) {
+        return this.memory.addFollowUp(context, remindAtMinutes);
+    }
+
+    /**
+     * Get due follow-ups
+     */
+    getDueFollowUps() {
+        return this.memory.getDueFollowUps();
+    }
+
+    /**
+     * Get pending follow-ups
+     */
+    getPendingFollowUps() {
+        return this.memory.getPendingFollowUps();
+    }
+
+    /**
+     * Dismiss a follow-up
+     */
+    dismissFollowUp(id) {
+        this.memory.dismissFollowUp(id);
+    }
+
+    /**
+     * Check and return due follow-ups
+     */
+    checkFollowUps() {
+        this.memory.clearExpiredContext();
+        const due = this.getDueFollowUps();
+        return due;
+    }
+
+    /**
+     * Build context summary for LLM
+     */
+    buildContextSummary() {
+        const parts = [];
+
+        const activeTask = this.getActiveTask();
+        if (activeTask) {
+            parts.push(`Active Task: ${activeTask.task}`);
+        }
+
+        if (this.conversationContext.length > 0) {
+            const recentCount = this.conversationContext.length;
+            parts.push(`Recent messages: ${recentCount}`);
+        }
+
+        const dueFollowUps = this.getDueFollowUps();
+        if (dueFollowUps.length > 0) {
+            parts.push(`Pending follow-ups: ${dueFollowUps.length}`);
+            dueFollowUps.forEach(f => {
+                parts.push(`- ${f.context}`);
+            });
+        }
+
+        return parts.join('\n');
+    }
+
+    /**
+     * Get context for mode-specific behavior
+     */
+    getModeContext() {
+        return {
+            activeTask: this.getActiveTask(),
+            recentMessages: this.conversationContext.slice(-5),
+            hasFollowUps: this.getDueFollowUps().length > 0,
+            pendingFollowUps: this.getPendingFollowUps().length
+        };
+    }
+
+    /**
+     * Extract task from user message
+     */
+    extractTaskIntent(message) {
+        const taskKeywords = [
+            { pattern: /i want to (.*)/i, type: 'creation' },
+            { pattern: /can you (.*)/i, type: 'request' },
+            { pattern: /help me (.*)/i, type: 'help' },
+            { pattern: /i'm working on (.*)/i, type: 'progress' },
+            { pattern: /finish (.*)/i, type: 'completion' },
+            { pattern: /continue (.*)/i, type: 'continuation' },
+            { pattern: /stop|pause|hold/i, type: 'pause' }
+        ];
+
+        for (const kw of taskKeywords) {
+            const match = message.match(kw.pattern);
+            if (match) {
+                return { type: kw.type, detail: match[1] || match[0] };
+            }
+        }
+        return { type: 'general', detail: message };
+    }
+
+    /**
+     * Update task progress
+     */
+    updateTaskProgress(progress) {
+        if (this.activeTask) {
+            this.activeTask.progress = progress;
+            this.activeTask.lastUpdate = new Date().toISOString();
+            if (this.currentSessionId) {
+                this.memory.setContext(this.currentSessionId, 'active_task', JSON.stringify(this.activeTask), 120);
+            }
+        }
+    }
+
+    /**
+     * Mark task as complete
+     */
+    completeTask() {
+        if (this.activeTask) {
+            this.activeTask.status = 'completed';
+            this.activeTask.completedAt = new Date().toISOString();
+            this.activeTask = null;
+        }
+    }
+
+    /**
+     * Mark task as failed
+     */
+    failTask(reason) {
+        if (this.activeTask) {
+            this.activeTask.status = 'failed';
+            this.activeTask.failedAt = new Date().toISOString();
+            this.activeTask.failureReason = reason;
+            this.activeTask = null;
+        }
+    }
+}
+
+module.exports = ContextManager;

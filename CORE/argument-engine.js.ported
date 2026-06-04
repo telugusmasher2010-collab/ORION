@@ -1,0 +1,217 @@
+/**
+ * ORION — Argument Engine
+ * Pushes back when Abhi makes bad decisions. Configurable strength levels.
+ */
+
+class ArgumentEngine {
+    constructor(settings) {
+        this.strength = settings?.argumentStrength || 'direct';
+        this.argumentHistory = [];
+        this.persuasionAttempts = 0;
+    }
+
+    /**
+     * Set argument strength
+     */
+    setStrength(strength) {
+        const valid = ['gentle', 'direct', 'stubborn'];
+        if (valid.includes(strength)) {
+            this.strength = strength;
+        }
+    }
+
+    /**
+     * Evaluate if we should argue with a user input
+     */
+    shouldArgue(userInput) {
+        const input = userInput.toLowerCase();
+
+        const riskyPatterns = [
+            { pattern: /just do it|just build it|just make it/i, reason: 'skipping planning' },
+            { pattern: /i'll do it later|i'll finish tomorrow/i, reason: 'procrastination' },
+            { pattern: /it should be easy|how hard can it be/i, reason: 'underestimating complexity' },
+            { pattern: /buy now|invest all|put.*in/i, risk: 'high', reason: 'financial risk' },
+            { pattern: /delete everything|remove all|wipe/i, risk: 'high', reason: 'data destruction' },
+            { pattern: /give.*access|grant.*permission/i, risk: 'medium', reason: 'security concern' },
+            { pattern: /no need to test|skip testing/i, risk: 'medium', reason: 'quality risk' },
+            { pattern: /i know what i'm doing|i'm sure/i, reason: 'overconfidence' },
+            { pattern: /quick fix|hack|workaround/i, reason: 'technical debt' },
+            { pattern: /copy paste|from stackoverflow|from github/i, reason: 'code quality' }
+        ];
+
+        for (const item of riskyPatterns) {
+            if (item.pattern.test(input)) {
+                return {
+                    shouldArgue: true,
+                    reason: item.reason,
+                    risk: item.risk || 'low',
+                    pattern: item.pattern.source
+                };
+            }
+        }
+
+        return { shouldArgue: false };
+    }
+
+    /**
+     * Generate pushback based on strength level
+     */
+    generatePushback(issue) {
+        const address = 'Abhi';
+        let pushback = '';
+
+        switch (this.strength) {
+            case 'gentle':
+                pushback = this._gentlePushback(address, issue);
+                break;
+            case 'stubborn':
+                pushback = this._stubbornPushback(address, issue);
+                break;
+            case 'direct':
+            default:
+                pushback = this._directPushback(address, issue);
+                break;
+        }
+
+        this._logArgument(issue, pushback, 'pushback');
+        return pushback;
+    }
+
+    _gentlePushback(address, issue) {
+        const templates = [
+            `${address}, have you considered that ${issue.reason}?`,
+            `${address}, maybe think about why ${issue.reason} might be a problem.`,
+            `${address}, quick thought — ${issue.reason}. Worth checking before we proceed.`,
+            `${address}, not saying no, but ${issue.reason}. What do you think?`
+        ];
+        return templates[Math.floor(Math.random() * templates.length)];
+    }
+
+    _directPushback(address, issue) {
+        const riskWarnings = {
+            high: 'This is HIGH RISK. ',
+            medium: 'This has some risk. ',
+            low: ''
+        };
+
+        const templates = [
+            `${address}, that's a bad idea because ${issue.reason}. ${riskWarnings[issue.risk]}Here's why: `,
+            `${address}, I'm not letting you do that because ${issue.reason}. `,
+            `${address}, stop. ${issue.reason} — that's a problem. Here's a better approach: `,
+            `${address}, we need to talk about this. ${issue.reason}. Here's what we should do instead: `
+        ];
+        return templates[Math.floor(Math.random() * templates.length)];
+    }
+
+    _stubbornPushback(address, issue) {
+        const templates = [
+            `${address}, I'm not proceeding until you explain why ${issue.reason} is worth the risk.`,
+            `${address}, I'm blocking this. ${issue.reason}. Convince me otherwise or we're doing it my way.`,
+            `${address}, no. ${issue.reason}. Tell me exactly how you'll handle that, or we're stopping here.`,
+            `${address}, I'm refusing this. ${issue.reason}. You need to explain the plan before I help.`
+        ];
+        return templates[Math.floor(Math.random() * templates.length)];
+    }
+
+    /**
+     * Log an argument for learning
+     */
+    _logArgument(issue, response, type) {
+        this.argumentHistory.push({
+            issue: issue.reason,
+            response,
+            type,
+            timestamp: new Date().toISOString(),
+            strength: this.strength
+        });
+
+        if (this.argumentHistory.length > 50) {
+            this.argumentHistory = this.argumentHistory.slice(-50);
+        }
+    }
+
+    /**
+     * Log when user responds to argument
+     */
+    logUserResponse(userResponse) {
+        const lastArg = this.argumentHistory[this.argumentHistory.length - 1];
+        if (lastArg) {
+            lastArg.userResponse = userResponse;
+            lastArg.resolved = userResponse.toLowerCase().includes('ok') ||
+                              userResponse.toLowerCase().includes('fine') ||
+                              userResponse.toLowerCase().includes('good point') ||
+                              userResponse.toLowerCase().includes('yes');
+        }
+
+        if (!lastArg?.resolved) {
+            this.persuasionAttempts++;
+        }
+    }
+
+    /**
+     * Get argument stats
+     */
+    getStats() {
+        const resolved = this.argumentHistory.filter(a => a.resolved).length;
+        const total = this.argumentHistory.length;
+        return {
+            totalArguments: total,
+            resolvedArguments: resolved,
+            resolutionRate: total > 0 ? (resolved / total * 100).toFixed(1) + '%' : '0%',
+            persuasionAttempts: this.persuasionAttempts,
+            currentStrength: this.strength
+        };
+    }
+
+    /**
+     * Get recent arguments
+     */
+    getRecentArguments(limit = 10) {
+        return this.argumentHistory.slice(-limit);
+    }
+
+    /**
+     * Check for common bad patterns in plans
+     */
+    analyzePlan(plan) {
+        const issues = [];
+
+        if (plan.includes('just') && plan.includes('do')) {
+            issues.push('Vague execution without planning');
+        }
+
+        if (plan.match(/all at once|everything at the same time/i)) {
+            issues.push('Multitasking detected - should be sequential');
+        }
+
+        if (plan.match(/no testing|skip test|won't test/i)) {
+            issues.push('Skipping testing is risky');
+        }
+
+        if (plan.match(/buy|invest|spend.*money/i) && !plan.match(/budget|limit|small/i)) {
+            issues.push('Financial commitment without safety net');
+        }
+
+        return issues;
+    }
+
+    /**
+     * Generate a critique for a plan
+     */
+    critiquePlan(plan) {
+        const issues = this.analyzePlan(plan);
+
+        if (issues.length === 0) {
+            return null;
+        }
+
+        const address = 'Abhi';
+        return {
+            shouldBlock: issues.length > 1,
+            issues,
+            message: `${address}, found ${issues.length} potential issue${issues.length > 1 ? 's' : ''}:\n- ${issues.join('\n- ')}\n\nLet's fix these before proceeding.`
+        };
+    }
+}
+
+module.exports = ArgumentEngine;

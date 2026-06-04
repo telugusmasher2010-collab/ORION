@@ -1,0 +1,193 @@
+ORION 3.0 — Personal AI Assistant & Multi-Agent Operator
+Author: Abhi | Version: 3.0.0 | Electron + Node.js Desktop App
+
+============================================================
+ARCHITECTURE OVERVIEW
+============================================================
+Stack: Electron 35 + Node.js | Vanilla JS/CSS/HTML | sql.js (SQLite)
+AI Backends: Groq (primary), OpenRouter Claude/Grok, Gemini (fallback), Ollama (disabled)
+
+CORE Modules (CORE/):
+- main.js: Electron main process, IPC handlers for everything
+- ai-brain.js: Multi-brain manager, routes to correct AI backend
+- brain-router.js: Smart routing — internet tasks to cloud, code to coder agent, etc.
+- memory-engine.js: SQLite session/message/project/folder storage
+- personality-engine.js: Mode detection (ORION, FRIDAY, JARVIS, Analyst, Coder, Business)
+- agent-registry.js + agent.js + coder-agent.js + business-agent.js + scheduler-agent.js: Sub-agent system
+- ollama.js: Local LLM client (disabled)
+- user-profile.js: Learns user preferences from interactions
+- context-manager.js: Tracks active session context
+- argument-engine.js: Pushback and critique engine
+- suggestion-engine.js: Proactive AI suggestions
+- goal-tracker.js: Goal CRUD with deadlines
+
+UI Files (UI/):
+- index2.html: ORION 3.0 3-column Mission Control layout
+- renderer.js: Chat, voice, goals, sessions, mode switching
+- orion-3.js: View switching, sidebar data binding, progress ring
+- styles/orion-3.css: Full dark theme (cyan #00f0ff accent), animations
+- styles/orion-theme.css: Legacy v2.0 styles
+
+Key Configs:
+- Primary AI: Groq (llama-3.3-70b-versatile)
+- Cloud AI: OpenRouter (Claude 3.5 Sonnet, Grok-2), Gemini 2.0 Flash
+- Local AI: Ollama DISABLED
+- Routing: Cloud-first, Groq primary, Claude/Gemini fallback
+
+============================================================
+PHASE 1: ORIGINAL ORION 2.0
+============================================================
+What existed: Single-column chat UI, 3 sub-agents, SQLite memory,
+personality modes, voice I/O, goal tracker, suggestion/argument engines,
+frameless title bar, session management.
+
+============================================================
+PHASE 2: ORION 3.0 UI — ADVANCED MISSION CONTROL
+============================================================
+Redesigned to 3-column Layout:
+┌─────────────────────────────────────────────────────┐
+│ Title Bar: ORION 3.0 | ● ONLINE | Mode Badge       │
+├────────┬────────────────────────────┬────────────────┤
+│ LEFT   │      CENTER PANEL          │  RIGHT         │
+│ SIDEBAR│  View Container (switches) │  SIDEBAR       │
+│ Nav    │  + Command Center (always) │  Session Info  │
+│ 9 items│  + Quick Actions Bar       │  AI Recs       │
+│        │                           │  System Status │
+│ [+Task]│                           │  Activity      │
+└────────┴────────────────────────────┴────────────────┘
+
+Files created/modified:
+- Created UI/index2.html — 3-column HTML
+- Created UI/styles/orion-3.css — 1031 lines of dark theme
+- Created UI/orion-3.js — View system, sidebar data binding
+- Modified main.js — Loads index2.html, added error logging
+
+============================================================
+PHASE 3: BUG FIX — CHAT REPLY NOT WORKING
+============================================================
+Root Cause: preload.js used variable "initialized" without declaring it.
+Missing "let initialized = false;" caused ReferenceError every time
+window.orion.getCurrentSessionId() was called.
+
+Impact: sendMessage() crashed, user saw "No chat selected" error,
+no AI reply ever appeared.
+
+Fixes:
+1. preload.js line 9: Added "let initialized = false;"
+2. ai-brain.js: Added non-streaming fallback (_groqNonStreaming)
+   for environments where streaming response.body is unavailable
+
+Result: Groq API works, chat replies correctly.
+
+============================================================
+PHASE 4: SIDEBAR WIRING
+============================================================
+Left Sidebar — 9 Navigation Views:
+- Dashboard: Progress ring, stats cards (sessions, messages, goals)
+- Tasks: Goal cards with create/complete/delete via backend
+- Clients: Placeholder (coming soon)
+- Leads: Placeholder (coming soon)
+- Systems: AI Engine, Ollama, Memory, Agents real-time status
+- Calendar: Placeholder (coming soon)
+- Analytics: Sessions, messages, goals counts
+- Logs: System log output
+- Settings: API status, current mode, restart button
+
+Right Sidebar — 4 Context Panels:
+- Current Session: Session ID, mode, message count, brain
+- AI Recommendations: Smart suggestions from backend
+- System Status: AI engine, Groq, Memory, Ollama live status
+- Recent Activity: Last 5 chat messages
+
+Fixes Applied:
+- CSS specificity conflict resolved — use inline style.display instead of classes
+- Dual click handling (onclick + addEventListener) for reliable nav
+- renderer.js showView delegates to switchView for ORION 3.0
+
+============================================================
+CURRENT STATE
+============================================================
+WORKING:
+- Electron app boots into 3-column Mission Control UI
+- Groq API integration — chat sends and receives AI replies
+- Streaming responses with chunk updates
+- Session management (create, switch, rename, delete)
+- 9 sidebar navigation views switch content
+- Dashboard stats, Tasks/Goals CRUD, Systems status, Analytics
+- Logs view with system output, Settings with API/mode status
+- Right sidebar live data refresh every 30 seconds
+- Custom frameless title bar with window controls
+- Voice input (Web Speech API)
+- Mode switching (ORION, FRIDAY, JARVIS, Analyst, Coder, Business)
+- 3 sub-agents (Coder, Business, Scheduler)
+- SQLite memory with sessions, projects, folders
+- Smart AI routing (code→coder, research→cloud, general→Groq)
+
+NOT WORKING / PLACEHOLDER:
+- Ollama local models not connected (intentionally disabled)
+- Clients, Leads, Calendar views — placeholder only
+- New Task button on sidebar footer not wired in HTML
+
+KNOWN ISSUES:
+- Gemini API quota exceeded (429 errors — free tier limit)
+- activeView variable in renderer.js not updated by switchView (cosmetic only)
+
+============================================================
+AI ROUTING CHAIN
+============================================================
+User Message
+  → Is internet task? → OpenRouter Grok (real-time)
+  → Ollama available & localFirst? → Ollama (various models)
+  → Default: Fallback chain
+      → Groq (primary, llama-3.3-70b-versatile)
+      → OpenRouter Claude (claude-3.5-sonnet)
+      → OpenRouter Grok (grok-2)
+      → Gemini (gemini-2.0-flash)
+      → Error: "No AI brain available"
+
+============================================================
+MESSAGE FLOW
+============================================================
+Renderer(sendMessage)
+  → preload.js (chat bridge)
+    → main.js (IPC: orion:chat)
+      → AIBrain.asyncChat()
+        → AgentRegistry.executeTask() [check sub-agents]
+        → BrainRouter.route() [pick AI backend]
+        → _groqStream() [fetch with stream:true]
+          → _readOpenAIStream() [parse SSE chunks]
+            → onChunk → IPC 'orion:chunk' → renderer
+        → Return full response
+      → MemoryEngine.saveMessage()
+      → ContextManager.update()
+      → UserProfile.learn()
+    ← Return { response, mode, brain }
+  ← renderer updates chat UI
+
+============================================================
+BUILD & RUN
+============================================================
+npm install
+npm start -- --dev   (DevTools open)
+npm start            (normal mode)
+
+============================================================
+ROADMAP
+============================================================
+SHORT TERM:
+- Wire Clients, Leads, Calendar views
+- Fix Gemini quota or upgrade key
+- Re-enable Ollama when local models available
+- Live dashboard stats refresh
+
+MEDIUM TERM:
+- Drag-resizable columns
+- Theme customization
+- Export/import sessions
+- AI-powered task generation from chat
+
+LONG TERM:
+- Multi-user profiles
+- Plugin system for third-party agents
+- WebSocket real-time sync
+- Mobile companion app

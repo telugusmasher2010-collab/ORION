@@ -1,0 +1,939 @@
+/**
+ * ORION — Memory Engine
+ * SQLite-based persistent memory for conversations, facts, and logs.
+ * Uses sql.js (pure JS, no native deps).
+ */
+
+const path = require('path');
+const fs = require('fs');
+
+class MemoryEngine {
+    constructor() {
+        this.db = null;
+        this.dbPath = path.join(__dirname, '..', 'MEMORY', 'orion.db');
+        this.ready = false;
+    }
+
+    /**
+     * Initialize the database (must be called with await)
+     */
+    async init() {
+        const initSqlJs = require('sql.js');
+        const SQL = await initSqlJs();
+
+        // Load existing DB or create new one
+        if (fs.existsSync(this.dbPath)) {
+            const buffer = fs.readFileSync(this.dbPath);
+            this.db = new SQL.Database(buffer);
+        } else {
+            this.db = new SQL.Database();
+        }
+
+        this._createTables();
+        this.ready = true;
+        console.log('[MemoryEngine] Database initialized');
+    }
+
+    /**
+     * Create tables if they don't exist
+     */
+    _createTables() {
+        this.db.run(`
+            CREATE TABLE IF NOT EXISTS sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT DEFAULT 'New Chat',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        this.db.run(`
+            CREATE TABLE IF NOT EXISTS conversations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id INTEGER DEFAULT 1,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                mode TEXT DEFAULT 'default',
+                brain TEXT DEFAULT 'local',
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (session_id) REFERENCES sessions(id)
+            )
+        `);
+
+        // Migration: Add session_id column if it doesn't exist (for existing databases)
+        try {
+            const tableInfo = this.db.exec("PRAGMA table_info(conversations)");
+            const columns = tableInfo[0]?.values?.map(row => row[1]) || [];
+            
+            if (!columns.includes('session_id')) {
+                this.db.run('ALTER TABLE conversations ADD COLUMN session_id INTEGER DEFAULT 1');
+                console.log('[MemoryEngine] Migrated: Added session_id column to conversations');
+            }
+        } catch (e) {
+            console.log('[MemoryEngine] Migration check:', e.message);
+        }
+
+        this.db.run(`
+            CREATE TABLE IF NOT EXISTS memories (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                key TEXT NOT NULL,
+                value TEXT NOT NULL,
+                category TEXT DEFAULT 'general',
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        this.db.run(`
+            CREATE TABLE IF NOT EXISTS daily_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                date TEXT NOT NULL UNIQUE,
+                energy INTEGER,
+                focus INTEGER,
+                tasks_completed TEXT,
+                notes TEXT,
+                timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Add project_id column to sessions if not exists (must be before default session insert)
+        try {
+            const tableInfo = this.db.exec("PRAGMA table_info(sessions)");
+            const columns = tableInfo[0]?.values?.map(row => row[1]) || [];
+            if (!columns.includes('project_id')) {
+                this.db.run('ALTER TABLE sessions ADD COLUMN project_id INTEGER DEFAULT 1');
+            }
+        } catch (e) {
+            console.log('[MemoryEngine] Migration check:', e.message);
+        }
+
+        // Create default session if none exists
+        const result = this.db.exec('SELECT COUNT(*) as count FROM sessions');
+        console.log('[Memory] Session count:', result[0]?.values[0][0]);
+        if (!result[0] || result[0].values[0][0] == 0) {
+            console.log('[Memory] Creating default session...');
+            this.db.run("INSERT INTO sessions (title, project_id) VALUES ('Default Session', 1)");
+            this._persist();
+            console.log('[Memory] Default session created');
+        }
+
+        this._createUserProfileTable();
+        this._createContextTable();
+        this._createGoalsTable();
+        this._createFollowUpsTable();
+        this._createProjectsTable();
+        this._createFoldersTable();
+        this._createClientsTable();
+        this._createLeadsTable();
+    }
+
+    _createProjectsTable() {
+        this.db.run(`
+            CREATE TABLE IF NOT EXISTS projects (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT,
+                is_default INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+
+        // Create default project if none exists
+        const result = this.db.exec('SELECT COUNT(*) as count FROM projects');
+        if (!result[0] || result[0].values[0][0] == 0) {
+            this.db.run("INSERT INTO projects (name, description, is_default) VALUES ('General', 'General conversations', 1)");
+        }
+    }
+
+    _createFoldersTable() {
+        this.db.run(`
+            CREATE TABLE IF NOT EXISTS folders (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                path TEXT NOT NULL,
+                name TEXT NOT NULL,
+                is_active INTEGER DEFAULT 0,
+                status TEXT DEFAULT 'active',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+    }
+
+    _createClientsTable() {
+        this.db.run(`
+            CREATE TABLE IF NOT EXISTS clients (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT,
+                phone TEXT,
+                notes TEXT DEFAULT '',
+                status TEXT DEFAULT 'active',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+    }
+
+    _createLeadsTable() {
+        this.db.run(`
+            CREATE TABLE IF NOT EXISTS leads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                email TEXT,
+                phone TEXT,
+                company TEXT,
+                stage TEXT DEFAULT 'cold',
+                value REAL DEFAULT 0,
+                notes TEXT DEFAULT '',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+    }
+
+    _createUserProfileTable() {
+        this.db.run(`
+            CREATE TABLE IF NOT EXISTS user_profile (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                key TEXT NOT NULL UNIQUE,
+                value TEXT NOT NULL,
+                category TEXT DEFAULT 'general',
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+    }
+
+    _createContextTable() {
+        this.db.run(`
+            CREATE TABLE IF NOT EXISTS context (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                session_id INTEGER,
+                key TEXT NOT NULL,
+                value TEXT,
+                expires_at DATETIME,
+                FOREIGN KEY (session_id) REFERENCES sessions(id)
+            )
+        `);
+    }
+
+    _createGoalsTable() {
+        this.db.run(`
+            CREATE TABLE IF NOT EXISTS goals (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT NOT NULL,
+                description TEXT,
+                deadline DATETIME,
+                status TEXT DEFAULT 'active',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                completed_at DATETIME
+            )
+        `);
+    }
+
+    _createFollowUpsTable() {
+        this.db.run(`
+            CREATE TABLE IF NOT EXISTS follow_ups (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                context TEXT NOT NULL,
+                remind_at DATETIME,
+                dismissed INTEGER DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        `);
+    }
+
+    // ========================================
+    // USER PROFILE METHODS
+    // ========================================
+
+    getProfile(key) {
+        if (!this.ready) return null;
+        const stmt = this.db.prepare('SELECT value, category FROM user_profile WHERE key = ?');
+        stmt.bind([key]);
+        let result = null;
+        if (stmt.step()) {
+            const row = stmt.getAsObject();
+            result = { value: row.value, category: row.category };
+        }
+        stmt.free();
+        return result;
+    }
+
+    setProfile(key, value, category = 'general') {
+        if (!this.ready) return;
+        this.db.run(
+            'INSERT OR REPLACE INTO user_profile (key, value, category, updated_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)',
+            [key, value, category]
+        );
+        this._persist();
+    }
+
+    getAllProfile() {
+        if (!this.ready) return {};
+        const results = {};
+        const stmt = this.db.prepare('SELECT key, value, category FROM user_profile');
+        while (stmt.step()) {
+            const row = stmt.getAsObject();
+            results[row.key] = { value: row.value, category: row.category };
+        }
+        stmt.free();
+        return results;
+    }
+
+    // ========================================
+    // CONTEXT METHODS
+    // ========================================
+
+    setContext(sessionId, key, value, expiresInMinutes = 60) {
+        if (!this.ready) return;
+        const expiresAt = new Date(Date.now() + expiresInMinutes * 60000).toISOString();
+        this.db.run(
+            'INSERT OR REPLACE INTO context (session_id, key, value, expires_at) VALUES (?, ?, ?, ?)',
+            [sessionId, key, value, expiresAt]
+        );
+        this._persist();
+    }
+
+    getContext(sessionId, key) {
+        if (!this.ready) return null;
+        const stmt = this.db.prepare(
+            'SELECT value FROM context WHERE session_id = ? AND key = ? AND (expires_at IS NULL OR expires_at > datetime("now"))'
+        );
+        stmt.bind([sessionId, key]);
+        let result = null;
+        if (stmt.step()) {
+            result = stmt.getAsObject().value;
+        }
+        stmt.free();
+        return result;
+    }
+
+    clearExpiredContext() {
+        if (!this.ready) return;
+        this.db.run('DELETE FROM context WHERE expires_at IS NOT NULL AND expires_at <= datetime("now")');
+        this._persist();
+    }
+
+    // ========================================
+    // GOAL METHODS
+    // ========================================
+
+    createGoal(title, description = '', deadline = null) {
+        if (!this.ready) return null;
+        this.db.run(
+            'INSERT INTO goals (title, description, deadline, status) VALUES (?, ?, ?, ?)',
+            [title, description, deadline, 'active']
+        );
+        this._persist();
+        const result = this.db.exec('SELECT last_insert_rowid() as id');
+        return result[0]?.values[0][0];
+    }
+
+    getActiveGoals() {
+        if (!this.ready) return [];
+        const stmt = this.db.prepare(
+            'SELECT id, title, description, deadline, status, created_at FROM goals WHERE status = ? ORDER BY created_at DESC'
+        );
+        stmt.bind(['active']);
+        const results = [];
+        while (stmt.step()) {
+            results.push(stmt.getAsObject());
+        }
+        stmt.free();
+        return results;
+    }
+
+    getAllGoals() {
+        if (!this.ready) return [];
+        const stmt = this.db.prepare('SELECT id, title, description, deadline, status, created_at, completed_at FROM goals ORDER BY created_at DESC');
+        const results = [];
+        while (stmt.step()) {
+            results.push(stmt.getAsObject());
+        }
+        stmt.free();
+        return results;
+    }
+
+    completeGoal(goalId) {
+        if (!this.ready) return;
+        this.db.run('UPDATE goals SET status = ?, completed_at = CURRENT_TIMESTAMP WHERE id = ?', ['completed', goalId]);
+        this._persist();
+    }
+
+    failGoal(goalId, reason = '') {
+        if (!this.ready) return;
+        this.db.run('UPDATE goals SET status = ?, description = description || ? WHERE id = ?', ['failed', ' [FAILED: ' + reason + ']', goalId]);
+        this._persist();
+    }
+
+    deleteGoal(goalId) {
+        if (!this.ready) return;
+        this.db.run('DELETE FROM goals WHERE id = ?', [goalId]);
+        this._persist();
+    }
+
+    // ========================================
+    // FOLLOW-UP METHODS
+    // ========================================
+
+    addFollowUp(context, remindAtMinutes = 60) {
+        if (!this.ready) return null;
+        const remindAt = new Date(Date.now() + remindAtMinutes * 60000).toISOString();
+        this.db.run(
+            'INSERT INTO follow_ups (context, remind_at) VALUES (?, ?)',
+            [context, remindAt]
+        );
+        this._persist();
+        const result = this.db.exec('SELECT last_insert_rowid() as id');
+        return result[0]?.values[0][0];
+    }
+
+    getDueFollowUps() {
+        if (!this.ready) return [];
+        const stmt = this.db.prepare(
+            'SELECT id, context, remind_at FROM follow_ups WHERE dismissed = 0 AND remind_at <= datetime("now") ORDER BY remind_at ASC'
+        );
+        const results = [];
+        while (stmt.step()) {
+            results.push(stmt.getAsObject());
+        }
+        stmt.free();
+        return results;
+    }
+
+    dismissFollowUp(followUpId) {
+        if (!this.ready) return;
+        this.db.run('UPDATE follow_ups SET dismissed = 1 WHERE id = ?', [followUpId]);
+        this._persist();
+    }
+
+    getPendingFollowUps() {
+        if (!this.ready) return [];
+        const stmt = this.db.prepare(
+            'SELECT id, context, remind_at FROM follow_ups WHERE dismissed = 0 AND remind_at > datetime("now") ORDER BY remind_at ASC'
+        );
+        const results = [];
+        while (stmt.step()) {
+            results.push(stmt.getAsObject());
+        }
+        stmt.free();
+        return results;
+    }
+
+    // ========================================
+    // PROJECT METHODS
+    // ========================================
+
+    createProject(name, description = '') {
+        if (!this.ready) return null;
+        this.db.run(
+            'INSERT INTO projects (name, description) VALUES (?, ?)',
+            [name, description]
+        );
+        this._persist();
+        const result = this.db.exec('SELECT last_insert_rowid() as id');
+        return result[0]?.values[0][0];
+    }
+
+    getProjects() {
+        if (!this.ready) return [];
+        const stmt = this.db.prepare(
+            'SELECT id, name, description, is_default, datetime(created_at) as created_at FROM projects ORDER BY is_default DESC, updated_at DESC'
+        );
+        const results = [];
+        while (stmt.step()) {
+            results.push(stmt.getAsObject());
+        }
+        stmt.free();
+        return results;
+    }
+
+    getProject(projectId) {
+        if (!this.ready) return null;
+        const stmt = this.db.prepare('SELECT * FROM projects WHERE id = ?');
+        stmt.bind([projectId]);
+        let result = null;
+        if (stmt.step()) {
+            result = stmt.getAsObject();
+        }
+        stmt.free();
+        return result;
+    }
+
+    updateProject(projectId, name, description) {
+        if (!this.ready) return;
+        this.db.run(
+            'UPDATE projects SET name = ?, description = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+            [name, description, projectId]
+        );
+        this._persist();
+    }
+
+    deleteProject(projectId) {
+        if (!this.ready) return;
+        // Set sessions in this project to default project
+        this.db.run('UPDATE sessions SET project_id = 1 WHERE project_id = ?', [projectId]);
+        // Delete project
+        this.db.run('DELETE FROM projects WHERE id = ? AND is_default = 0', [projectId]);
+        this._persist();
+    }
+
+    // ========================================
+    // FOLDER METHODS
+    // ========================================
+
+    addFolder(path, name) {
+        if (!this.ready) return null;
+        this.db.run(
+            'INSERT INTO folders (path, name, is_active) VALUES (?, ?, ?)',
+            [path, name, 0]
+        );
+        this._persist();
+        const result = this.db.exec('SELECT last_insert_rowid() as id');
+        return result[0]?.values[0][0];
+    }
+
+    getFolders() {
+        if (!this.ready) return [];
+        const stmt = this.db.prepare(
+            'SELECT id, path, name, is_active, status, datetime(created_at) as created_at FROM folders WHERE status = "active" ORDER BY is_active DESC, created_at DESC'
+        );
+        const results = [];
+        while (stmt.step()) {
+            results.push(stmt.getAsObject());
+        }
+        stmt.free();
+        return results;
+    }
+
+    setActiveFolder(folderId) {
+        if (!this.ready) return;
+        this.db.run('UPDATE folders SET is_active = 0');
+        this.db.run('UPDATE folders SET is_active = 1 WHERE id = ?', [folderId]);
+        this._persist();
+    }
+
+    getActiveFolder() {
+        if (!this.ready) return null;
+        const stmt = this.db.prepare('SELECT * FROM folders WHERE is_active = 1');
+        let result = null;
+        if (stmt.step()) {
+            result = stmt.getAsObject();
+        }
+        stmt.free();
+        return result;
+    }
+
+    sendFolderToScrap(folderId) {
+        if (!this.ready) return;
+        this.db.run('UPDATE folders SET status = "forgotten" WHERE id = ?', [folderId]);
+        this._persist();
+    }
+
+    recoverFolder(folderId) {
+        if (!this.ready) return;
+        this.db.run('UPDATE folders SET status = "active" WHERE id = ?', [folderId]);
+        this._persist();
+    }
+
+    deleteFolder(folderId) {
+        if (!this.ready) return;
+        this.db.run('DELETE FROM folders WHERE id = ?', [folderId]);
+        this._persist();
+    }
+
+    getForgottenFolders() {
+        if (!this.ready) return [];
+        const stmt = this.db.prepare('SELECT * FROM folders WHERE status = "forgotten"');
+        const results = [];
+        while (stmt.step()) {
+            results.push(stmt.getAsObject());
+        }
+        stmt.free();
+        return results;
+    }
+
+    /**
+     * Save a message to conversation history
+     */
+    saveMessage(role, content, mode = 'default', brain = 'local', sessionId = null) {
+        console.log('[Memory] saveMessage called:', role, 'sessionId:', sessionId, 'content length:', content.length);
+
+        if (!this.ready) {
+            console.log('[Memory] Not ready, skipping save');
+            return;
+        }
+
+        if (!sessionId) {
+            sessionId = this.getCurrentSession();
+            console.log('[Memory] Got sessionId from getCurrentSession:', sessionId);
+        }
+
+        try {
+            this.db.run(
+                'INSERT INTO conversations (session_id, role, content, mode, brain) VALUES (?, ?, ?, ?, ?)',
+                [sessionId, role, content, mode, brain]
+            );
+
+            // Update session updated_at
+            this.db.run('UPDATE sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [sessionId]);
+
+            this._persist();
+            console.log('[Memory] Message saved successfully');
+        } catch (err) {
+            console.error('[Memory] saveMessage error:', err);
+        }
+    }
+
+    /**
+     * Get current active session ID
+     */
+    getCurrentSession() {
+        // First try to get from profile (stores current session)
+        const profile = this.getProfile('current_session_id');
+        if (profile && profile.value) {
+            return parseInt(profile.value);
+        }
+        // Fallback to most recent session
+        const result = this.db.exec('SELECT id FROM sessions ORDER BY updated_at DESC LIMIT 1');
+        return result[0]?.values[0][0] || 1;
+    }
+
+    setCurrentSession(sessionId) {
+        this.setProfile('current_session_id', sessionId.toString(), 'system');
+    }
+
+    /**
+     * Create a new session
+     */
+    createSession(title = 'New Chat', projectId = 1) {
+        console.log('[Memory] createSession called:', title, 'projectId:', projectId);
+        try {
+            this.db.run('INSERT INTO sessions (title, project_id) VALUES (?, ?)', [title, projectId]);
+            this._persist();
+
+            // Get the most recent session ID instead of last_insert_rowid
+            const result = this.db.exec('SELECT MAX(id) as id FROM sessions');
+            const newId = result[0]?.values[0][0];
+            console.log('[Memory] Created session with ID:', newId);
+            return newId;
+        } catch (err) {
+            console.error('[Memory] createSession error:', err);
+            return null;
+        }
+    }
+
+    /**
+     * Get all sessions
+     */
+    getSessions() {
+        console.log('[Memory] getSessions called, ready:', this.ready);
+        if (!this.ready) {
+            console.log('[Memory] Not ready, returning []');
+            return [];
+        }
+
+        try {
+            const result = this.db.exec('SELECT id, title, project_id, updated_at FROM sessions ORDER BY updated_at DESC');
+            console.log('[Memory] Query result:', result);
+
+            if (!result[0] || result[0].values.length === 0) {
+                console.log('[Memory] No sessions found');
+                return [];
+            }
+
+            const rows = result[0].values.map(row => ({
+                id: row[0],
+                title: row[1],
+                project_id: row[2],
+                updated_at: row[3]
+            }));
+            console.log('[Memory] Returning sessions:', rows.length, rows);
+            return rows;
+        } catch (err) {
+            console.error('[Memory] getSessions error:', err);
+            return [];
+        }
+    }
+
+    /**
+     * Rename a session
+     */
+    renameSession(sessionId, newTitle) {
+        return new Promise((resolve, reject) => {
+            try {
+                const sql = `UPDATE sessions SET title = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`;
+                this.db.run(sql, [newTitle, sessionId]);
+                this._persist();
+                resolve({ success: true, id: sessionId, title: newTitle });
+            } catch (err) {
+                reject(err);
+            }
+        });
+    }
+
+    /**
+     * Delete a session and its associated messages
+     */
+    deleteSession(sessionId) {
+        try {
+            this.db.run(`DELETE FROM conversations WHERE session_id = ?`, [sessionId]);
+            this.db.run(`DELETE FROM sessions WHERE id = ?`, [sessionId]);
+            this._persist();
+            return Promise.resolve({ success: true, id: sessionId });
+        } catch (err) {
+            return Promise.reject(err);
+        }
+    }
+
+    /**
+     * Switch to a different session
+     */
+    switchSession(sessionId) {
+        // Store current session ID in profile
+        this.setCurrentSession(sessionId);
+        // Update the session's updated_at to make it most recent
+        this.db.run('UPDATE sessions SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [sessionId]);
+        this._persist();
+        return sessionId;
+    }
+
+    /**
+     * Get conversation history for a specific session (most recent N messages)
+     */
+    getHistory(limit = 50, sessionId = null) {
+        if (!this.ready) return [];
+
+        if (!sessionId) {
+            sessionId = this.getCurrentSession();
+        }
+
+        const stmt = this.db.prepare(
+            'SELECT role, content, mode, brain, timestamp FROM conversations WHERE session_id = ? ORDER BY id DESC LIMIT ?'
+        );
+        stmt.bind([sessionId, limit]);
+
+        const results = [];
+        while (stmt.step()) {
+            results.push(stmt.getAsObject());
+        }
+        stmt.free();
+
+        return results.reverse(); // chronological order
+    }
+
+    /**
+     * Save a fact/memory
+     */
+    saveFact(key, value, category = 'general') {
+        if (!this.ready) return;
+        // Use INSERT OR REPLACE for sql.js compatibility (avoids ON CONFLICT syntax issues)
+        this.db.run(
+            'INSERT OR REPLACE INTO memories (key, value, category, timestamp) VALUES (?, ?, ?, CURRENT_TIMESTAMP)',
+            [key, value, category]
+        );
+        this._persist();
+    }
+
+    /**
+     * Get all facts, optionally filtered by category
+     */
+    getFacts(category = null) {
+        if (!this.ready) return [];
+        let query = 'SELECT key, value, category, timestamp FROM memories';
+        let params = [];
+
+        if (category) {
+            query += ' WHERE category = ?';
+            params = [category];
+        }
+
+        query += ' ORDER BY timestamp DESC';
+
+        const stmt = this.db.prepare(query);
+        if (params.length) stmt.bind(params);
+
+        const results = [];
+        while (stmt.step()) {
+            results.push(stmt.getAsObject());
+        }
+        stmt.free();
+        return results;
+    }
+
+    /**
+     * Search conversation history for a keyword
+     */
+    searchHistory(query, limit = 20) {
+        if (!this.ready) return [];
+        const stmt = this.db.prepare(
+            'SELECT role, content, mode, timestamp FROM conversations WHERE content LIKE ? ORDER BY id DESC LIMIT ?'
+        );
+        stmt.bind([`%${query}%`, limit]);
+
+        const results = [];
+        while (stmt.step()) {
+            results.push(stmt.getAsObject());
+        }
+        stmt.free();
+        return results.reverse();
+    }
+
+    /**
+     * Get conversation stats
+     */
+    getStats() {
+        if (!this.ready) return {};
+        const totalMessages = this.db.exec('SELECT COUNT(*) as count FROM conversations')[0]?.values[0][0] || 0;
+        const totalFacts = this.db.exec('SELECT COUNT(*) as count FROM memories')[0]?.values[0][0] || 0;
+        const todayMessages = this.db.exec(
+            "SELECT COUNT(*) as count FROM conversations WHERE date(timestamp) = date('now')"
+        )[0]?.values[0][0] || 0;
+
+        return { totalMessages, totalFacts, todayMessages };
+    }
+
+    /**
+     * Clear all conversation history (keeps facts)
+     */
+    clearHistory() {
+        if (!this.ready) return;
+        this.db.run('DELETE FROM conversations');
+        this._persist();
+    }
+
+    /**
+     * Write database to disk
+     */
+    _persist() {
+        try {
+            const data = this.db.export();
+            const buffer = Buffer.from(data);
+            fs.writeFileSync(this.dbPath, buffer);
+        } catch (err) {
+            console.error('[MemoryEngine] Failed to persist DB:', err.message);
+        }
+    }
+
+    // ========================================
+    // CLIENT METHODS
+    // ========================================
+    createClient(name, email = '', phone = '', notes = '') {
+        if (!this.ready) return null;
+        this.db.run(
+            'INSERT INTO clients (name, email, phone, notes) VALUES (?, ?, ?, ?)',
+            [name, email, phone, notes]
+        );
+        this._persist();
+        const result = this.db.exec('SELECT last_insert_rowid() as id');
+        return result[0]?.values[0][0];
+    }
+
+    getClients() {
+        if (!this.ready) return [];
+        const stmt = this.db.prepare('SELECT * FROM clients ORDER BY updated_at DESC');
+        const results = [];
+        while (stmt.step()) results.push(stmt.getAsObject());
+        stmt.free();
+        return results;
+    }
+
+    getClient(clientId) {
+        if (!this.ready) return null;
+        const stmt = this.db.prepare('SELECT * FROM clients WHERE id = ?');
+        stmt.bind([clientId]);
+        let result = null;
+        if (stmt.step()) result = stmt.getAsObject();
+        stmt.free();
+        return result;
+    }
+
+    updateClient(clientId, data) {
+        if (!this.ready) return;
+        const fields = [];
+        const values = [];
+        if (data.name !== undefined) { fields.push('name = ?'); values.push(data.name); }
+        if (data.email !== undefined) { fields.push('email = ?'); values.push(data.email); }
+        if (data.phone !== undefined) { fields.push('phone = ?'); values.push(data.phone); }
+        if (data.notes !== undefined) { fields.push('notes = ?'); values.push(data.notes); }
+        if (data.status !== undefined) { fields.push('status = ?'); values.push(data.status); }
+        if (fields.length === 0) return;
+        values.push(clientId);
+        this.db.run(`UPDATE clients SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, values);
+        this._persist();
+    }
+
+    deleteClient(clientId) {
+        if (!this.ready) return;
+        this.db.run('DELETE FROM clients WHERE id = ?', [clientId]);
+        this._persist();
+    }
+
+    // ========================================
+    // LEAD METHODS
+    // ========================================
+    createLead(name, email = '', phone = '', company = '', stage = 'cold', value = 0, notes = '') {
+        if (!this.ready) return null;
+        this.db.run(
+            'INSERT INTO leads (name, email, phone, company, stage, value, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [name, email, phone, company, stage, value, notes]
+        );
+        this._persist();
+        const result = this.db.exec('SELECT last_insert_rowid() as id');
+        return result[0]?.values[0][0];
+    }
+
+    getLeads() {
+        if (!this.ready) return [];
+        const stmt = this.db.prepare('SELECT * FROM leads ORDER BY updated_at DESC');
+        const results = [];
+        while (stmt.step()) results.push(stmt.getAsObject());
+        stmt.free();
+        return results;
+    }
+
+    getLead(leadId) {
+        if (!this.ready) return null;
+        const stmt = this.db.prepare('SELECT * FROM leads WHERE id = ?');
+        stmt.bind([leadId]);
+        let result = null;
+        if (stmt.step()) result = stmt.getAsObject();
+        stmt.free();
+        return result;
+    }
+
+    updateLead(leadId, data) {
+        if (!this.ready) return;
+        const fields = [];
+        const values = [];
+        if (data.name !== undefined) { fields.push('name = ?'); values.push(data.name); }
+        if (data.email !== undefined) { fields.push('email = ?'); values.push(data.email); }
+        if (data.phone !== undefined) { fields.push('phone = ?'); values.push(data.phone); }
+        if (data.company !== undefined) { fields.push('company = ?'); values.push(data.company); }
+        if (data.stage !== undefined) { fields.push('stage = ?'); values.push(data.stage); }
+        if (data.value !== undefined) { fields.push('value = ?'); values.push(data.value); }
+        if (data.notes !== undefined) { fields.push('notes = ?'); values.push(data.notes); }
+        if (fields.length === 0) return;
+        values.push(leadId);
+        this.db.run(`UPDATE leads SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, values);
+        this._persist();
+    }
+
+    deleteLead(leadId) {
+        if (!this.ready) return;
+        this.db.run('DELETE FROM leads WHERE id = ?', [leadId]);
+        this._persist();
+    }
+
+    /**
+     * Close database connection
+     */
+    close() {
+        if (this.db) {
+            this._persist();
+            this.db.close();
+        }
+    }
+}
+
+module.exports = MemoryEngine;

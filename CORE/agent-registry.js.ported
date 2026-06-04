@@ -1,0 +1,119 @@
+/**
+ * ORION — Agent Registry
+ * Central hub for all sub-agents. Registers, routes, and manages execution.
+ */
+
+class AgentRegistry {
+    constructor(ollamaBrain) {
+        this.agents = new Map();
+        this.taskQueue = [];
+        this.activeTasks = new Map();
+        this.ollama = ollamaBrain;
+    }
+
+    /**
+     * Register a new agent
+     */
+    register(agent) {
+        this.agents.set(agent.id, agent);
+        console.log(`[AgentRegistry] Registered: ${agent.name} (${agent.id})`);
+    }
+
+    /**
+     * Get agent by ID
+     */
+    get(agentId) {
+        return this.agents.get(agentId);
+    }
+
+    /**
+     * Get all agents with their status
+     */
+    getAll() {
+        const result = [];
+        for (const agent of this.agents.values()) {
+            result.push(agent.getInfo());
+        }
+        return result;
+    }
+
+    /**
+     * Route a task to the best matching agent
+     * Returns the agent that should handle it
+     */
+    routeTask(task) {
+        const taskLower = task.toLowerCase();
+        let bestAgent = null;
+        let bestScore = 0;
+
+        for (const agent of this.agents.values()) {
+            const score = this._scoreMatch(taskLower, agent);
+            if (score > bestScore) {
+                bestScore = score;
+                bestAgent = agent;
+            }
+        }
+
+        // If no agent scores above threshold, return null (manager handles directly)
+        return bestScore > 0 ? bestAgent : null;
+    }
+
+    /**
+     * Score how well a task matches an agent
+     * Uses exclusive keywords to prevent overlap conflicts
+     */
+    _scoreMatch(task, agent) {
+        let score = 0;
+
+        // Exclusive keyword sets — no overlaps between agents
+        const keywordSets = {
+            coder: ['code', 'function', 'script', 'bug', 'debug', 'build website', 'html', 'css', 'javascript', 'python', 'api endpoint', 'database query', 'edit file', 'create file', 'project setup', 'program', 'deploy', 'git commit', 'github', 'npm install', 'framework', 'library', 'component', 'react', 'vue', 'node.js', 'express', 'endpoint', 'write code', 'fix bug', 'refactor'],
+            business: ['youtube', 'shopify', 'store', 'ecommerce', 'client', 'freelance', 'revenue', 'marketing', 'seo', 'audience', 'subscriber', 'monetize', 'brand', 'launch', 'sales', 'product listing', 'pricing strategy', 'content strategy', 'video idea', 'thumbnail idea'],
+            scheduler: ['schedule', 'remind', 'deadline', 'meeting', 'calendar', 'task list', 'daily plan', 'weekly plan', 'alert', 'organize', 'when is', 'set reminder', 'create task']
+        };
+
+        const keywords = keywordSets[agent.id] || [];
+        for (const keyword of keywords) {
+            if (task.includes(keyword)) {
+                score += keyword.split(' ').length * 2; // Multi-word matches score higher
+            }
+        }
+
+        return score;
+    }
+
+    /**
+     * Execute a task on the appropriate agent
+     */
+    async executeTask(task, settings, personality, brain) {
+        const agent = this.routeTask(task);
+
+        if (!agent) {
+            return { handled: false, agent: null, response: null };
+        }
+
+        console.log(`[AgentRegistry] Routing to ${agent.name}: ${task.substring(0, 80)}...`);
+
+        const response = await agent.execute(task, settings, personality, brain, this.ollama);
+
+        return {
+            handled: true,
+            agent: agent.getInfo(),
+            response
+        };
+    }
+
+    /**
+     * Get system status
+     */
+    getStatus() {
+        return {
+            totalAgents: this.agents.size,
+            activeAgents: Array.from(this.agents.values()).filter(a => a.status === 'working').length,
+            agents: this.getAll(),
+            queuedTasks: this.taskQueue.length
+        };
+    }
+}
+
+module.exports = AgentRegistry;

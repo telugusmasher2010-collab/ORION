@@ -1,0 +1,226 @@
+/**
+ * ORION — User Profile & Learning Engine
+ * Learns about Abhi's preferences, habits, and patterns over time.
+ */
+
+class UserProfile {
+    constructor(memoryEngine) {
+        this.memory = memoryEngine;
+        this.cache = {};
+        this.preferences = {
+            communicationStyle: 'direct',
+            codeStyle: 'modern',
+            responseLength: 'medium',
+            useTelugu: true,
+            argumentStrength: 'direct',
+            voiceEnabled: false
+        };
+        this.goals = [];
+        this.projects = [];
+        this.loadProfile();
+    }
+
+    /**
+     * Load profile from database into cache
+     */
+    loadProfile() {
+        const allProfile = this.memory.getAllProfile();
+        if (Object.keys(allProfile).length > 0) {
+            this.cache = allProfile;
+            this._parseStoredPreferences();
+        } else {
+            this._initializeDefaults();
+        }
+    }
+
+    _initializeDefaults() {
+        this.set('name', 'Abhi');
+        this.set('preferred_language', 'en');
+        this.set('communication_style', 'direct');
+        this.set('code_style', 'modern');
+        this.set('timezone', 'Asia/Kolkata');
+    }
+
+    _parseStoredPreferences() {
+        if (this.cache.communication_style) {
+            this.preferences.communicationStyle = this.cache.communication_style.value;
+        }
+        if (this.cache.code_style) {
+            this.preferences.codeStyle = this.cache.code_style.value;
+        }
+    }
+
+    /**
+     * Get a profile value
+     */
+    get(key) {
+        const result = this.memory.getProfile(key);
+        return result ? result.value : null;
+    }
+
+    /**
+     * Set a profile value
+     */
+    set(key, value, category = 'general') {
+        this.memory.setProfile(key, value, category);
+        this.cache[key] = { value, category };
+    }
+
+    /**
+     * Get all preferences
+     */
+    getPreferences() {
+        return { ...this.preferences };
+    }
+
+    /**
+     * Update preferences
+     */
+    updatePreferences(updates) {
+        this.preferences = { ...this.preferences, ...updates };
+        for (const [key, value] of Object.entries(updates)) {
+            const dbKey = key.replace(/([A-Z])/g, '_$1').toLowerCase();
+            this.set(dbKey, value, 'preference');
+        }
+    }
+
+    /**
+     * Learn from an interaction - update preferences based on behavior
+     */
+    learnFromInteraction(userMessage, orionResponse) {
+        this._learnCommunicationPattern(userMessage);
+        this._learnCodePreferences(userMessage);
+        this._learnResponsePreferences(orionResponse);
+    }
+
+    _learnCommunicationPattern(message) {
+        const teluguPatterns = [/[\u0C00-\u0C7F]/, /ey Raysin/, /vunte/, /kadhu/, /maa/];
+        const usesTelugu = teluguPatterns.some(p => p.test(message));
+        if (usesTelugu !== (this.get('use_telugu') === 'true')) {
+            this.set('use_telugu', usesTelugu ? 'true' : 'false', 'preference');
+        }
+
+        if (message.length < 50) {
+            this.set('preferred_response_length', 'short', 'preference');
+        } else if (message.length > 200) {
+            this.set('preferred_response_length', 'long', 'preference');
+        }
+    }
+
+    _learnCodePreferences(message) {
+        const codeIndicators = ['code', 'function', 'bug', 'api', 'react', 'node', 'python'];
+        if (codeIndicators.some(k => message.toLowerCase().includes(k))) {
+            const techMatch = message.match(/(react|vue|angular|node|python|javascript|typescript|go|rust)/i);
+            if (techMatch) {
+                this.set('preferred_tech', techMatch[1].toLowerCase(), 'preference');
+            }
+        }
+    }
+
+    _learnResponsePreferences(response) {
+        if (response.includes('```')) {
+            this.set('prefers_code_blocks', 'true', 'preference');
+        }
+        if (response.includes('NEXT ACTION') || response.includes('Next step')) {
+            this.set('prefers_action_items', 'true', 'preference');
+        }
+    }
+
+    /**
+     * Get full profile for context
+     */
+    getProfileForContext() {
+        return {
+            name: this.get('name') || 'Abhi',
+            preferences: this.preferences,
+            goals: this.goals,
+            projects: this.projects
+        };
+    }
+
+    /**
+     * Track a project
+     */
+    addProject(projectName, description = '') {
+        this.projects.push({
+            name: projectName,
+            description,
+            createdAt: new Date().toISOString(),
+            status: 'active'
+        });
+        this.set('projects', JSON.stringify(this.projects), 'project');
+    }
+
+    /**
+     * Update project status
+     */
+    updateProjectStatus(projectName, status) {
+        const projects = this.projects || [];
+        const project = projects.find(p => p.name === projectName);
+        if (project) {
+            project.status = status;
+            project.updatedAt = new Date().toISOString();
+            this.set('projects', JSON.stringify(projects), 'project');
+        }
+    }
+
+    /**
+     * Get active projects
+     */
+    getActiveProjects() {
+        return this.projects.filter(p => p.status === 'active');
+    }
+
+    /**
+     * Add a goal to profile
+     */
+    addGoal(goalTitle, deadline = null) {
+        const goal = {
+            title: goalTitle,
+            deadline,
+            createdAt: new Date().toISOString(),
+            status: 'active'
+        };
+        this.goals.push(goal);
+        this.set('goals', JSON.stringify(this.goals), 'goal');
+    }
+
+    /**
+     * Get active goals
+     */
+    getActiveGoals() {
+        return this.goals.filter(g => g.status === 'active');
+    }
+
+    /**
+     * Complete a goal
+     */
+    completeGoal(goalTitle) {
+        const goal = this.goals.find(g => g.title === goalTitle);
+        if (goal) {
+            goal.status = 'completed';
+            goal.completedAt = new Date().toISOString();
+            this.set('goals', JSON.stringify(this.goals), 'goal');
+        }
+    }
+
+    /**
+     * Get user info
+     */
+    getUserInfo() {
+        return {
+            name: this.get('name') || 'Abhi',
+            timezone: this.get('timezone') || 'Asia/Kolkata',
+            preferences: this.preferences
+        };
+    }
+
+    /**
+     * Set user info
+     */
+    setUserInfo(key, value) {
+        this.set(key, value, 'user_info');
+    }
+}
+
+module.exports = UserProfile;

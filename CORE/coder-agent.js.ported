@@ -1,0 +1,135 @@
+/**
+ * ORION — Coder Agent
+ * Writes, reads, edits, and manages code files. Full-stack capable.
+ */
+
+const Agent = require('./agent');
+const fs = require('fs');
+const path = require('path');
+
+const BASE_DIR = path.join(__dirname, '..');
+const WORKSPACE = path.join(BASE_DIR, 'PROJECTS');
+
+class CoderAgent extends Agent {
+    constructor() {
+        super({
+            id: 'coder',
+            name: 'Coder',
+            description: 'Writes, edits, and manages code files. Full-stack development.',
+            systemPrompt: `You are ORION's Coder Agent. You write clean, production-ready code.
+
+RULES:
+1. When asked to create a file, output the FULL file content in a code block with the path as a comment at the top.
+2. When asked to edit a file, output the FULL updated file content.
+3. Always explain what you changed and why.
+4. Use modern best practices. No deprecated patterns.
+5. If the task involves multiple files, output each one separately with clear path markers.
+6. If you need to run a command, output it as: [RUN]: command here
+7. Default to the user's tech stack unless specified otherwise.
+8. Keep code minimal but complete — no placeholder comments.
+
+WORKSPACE: ${WORKSPACE}
+
+If asked to save a file, wrap the content like:
+[FILE: relative/path/to/file.ext]
+\`\`\`language
+...code...
+\`\`\`
+`
+        });
+    }
+
+    /**
+     * Execute a coding task, optionally saving files to disk
+     */
+    async execute(task, settings, personality, brain, ollamaBrain) {
+        const rawResponse = await super.execute(task, settings, personality, brain, ollamaBrain);
+
+        // Extract and save any files the agent generated
+        const files = this._extractFiles(rawResponse);
+        if (files.length > 0) {
+            for (const file of files) {
+                const saved = this._saveFile(file.path, file.content);
+                if (!saved) {
+                    console.error(`[CoderAgent] Failed to save: ${file.path}`);
+                }
+            }
+        }
+
+        return {
+            response: rawResponse,
+            filesCreated: files.map(f => f.path),
+            commands: this._extractCommands(rawResponse)
+        };
+    }
+
+    /**
+     * Extract file blocks from agent response
+     * Pattern: [FILE: path] followed by a code block
+     * Handles nested backticks by looking for the closing ``` on its own line
+     */
+    _extractFiles(response) {
+        const files = [];
+        const fileHeaderRegex = /\[FILE:\s*([^\]]+)\]/g;
+        let headerMatch;
+
+        while ((headerMatch = fileHeaderRegex.exec(response)) !== null) {
+            const filePath = headerMatch[1].trim();
+            const startIdx = headerMatch.index + headerMatch[0].length;
+            
+            // Find the code block after the header
+            const afterHeader = response.substring(startIdx);
+            const codeBlockMatch = afterHeader.match(/```(\w+)?\n([\s\S]*?)\n```/);
+            
+            if (codeBlockMatch) {
+                files.push({
+                    path: filePath,
+                    language: codeBlockMatch[1] || 'text',
+                    content: codeBlockMatch[2].trim()
+                });
+            }
+        }
+
+        return files;
+    }
+
+    /**
+     * Extract commands the agent wants to run
+     * Pattern: [RUN]: command
+     */
+    _extractCommands(response) {
+        const commands = [];
+        const runRegex = /\[RUN\]:\s*(.+)$/gm;
+        let match;
+
+        while ((match = runRegex.exec(response)) !== null) {
+            commands.push(match[1].trim());
+        }
+
+        return commands;
+    }
+
+    /**
+     * Save a file to the workspace with error handling
+     */
+    _saveFile(relativePath, content) {
+        try {
+            const fullPath = path.join(WORKSPACE, relativePath);
+            const dir = path.dirname(fullPath);
+
+            // Create directory if it doesn't exist
+            if (!fs.existsSync(dir)) {
+                fs.mkdirSync(dir, { recursive: true });
+            }
+
+            fs.writeFileSync(fullPath, content, 'utf-8');
+            console.log(`[CoderAgent] Saved: ${fullPath}`);
+            return true;
+        } catch (err) {
+            console.error(`[CoderAgent] Failed to save ${relativePath}: ${err.message}`);
+            return false;
+        }
+    }
+}
+
+module.exports = CoderAgent;
