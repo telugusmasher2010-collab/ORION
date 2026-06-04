@@ -42,7 +42,7 @@ impl SuggestionEngine {
                             suggestions.push(serde_json::json!({
                                 "type": "deadline",
                                 "priority": "high",
-                                "message": format!("\u23f0 \"{title}\" is due in {} hours!", hours_until.round() as i64),
+                                "message": format!("\u{23f0} \"{title}\" is due in {} hours!", hours_until.round() as i64),
                                 "action": "complete_goal",
                                 "goalId": goal.get("id")
                             }));
@@ -72,7 +72,7 @@ impl SuggestionEngine {
                         "type": "break",
                         "priority": "low",
                         "message": format!(
-                            "\U0001f634 You've been on \"{task}\" for {} minutes. Take a break?",
+                            "\u{1f634} You've been on \"{task}\" for {} minutes. Take a break?",
                             minutes_active.round() as i64
                         ),
                         "action": "suggest_break"
@@ -140,9 +140,9 @@ impl SuggestionEngine {
     pub fn suggest_break(&self, _reason: &str) -> serde_json::Value {
         let break_options = [
             "\u2615 Quick coffee break?",
-            "\U0001f6b6 5-minute stretch break?",
-            "\U0001f4a7 Get some water?",
-            "\U0001f440 Rest your eyes for a minute?",
+            "\u{1f6b6} 5-minute stretch break?",
+            "\u{1f4a7} Get some water?",
+            "\u{1f440} Rest your eyes for a minute?",
         ];
 
         let idx = (current_epoch_secs() as usize) % break_options.len();

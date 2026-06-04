@@ -24,7 +24,7 @@ impl GoalTracker {
                     None => return false,
                 };
                 match DateTime::parse_from_rfc3339(deadline_str) {
-                    Ok(dt) => dt < now,
+                    Ok(dt) => dt.with_timezone(&Utc) < now,
                     Err(_) => false,
                 }
             })
@@ -49,7 +49,10 @@ impl GoalTracker {
                     None => return false,
                 };
                 match DateTime::parse_from_rfc3339(deadline_str) {
-                    Ok(dt) => dt >= now && dt <= future,
+                    Ok(dt) => {
+                        let dt_utc = dt.with_timezone(&Utc);
+                        dt_utc >= now && dt_utc <= future
+                    }
                     Err(_) => false,
                 }
             })
@@ -120,7 +123,7 @@ impl GoalTracker {
                 .and_then(|d| d.as_str())
                 .and_then(|s| DateTime::parse_from_rfc3339(s).ok())
                 .map(|dt| {
-                    let diff = dt - now;
+                    let diff = dt.with_timezone(&Utc) - now;
                     let hours = diff.num_hours();
                     if hours < 0 {
                         0

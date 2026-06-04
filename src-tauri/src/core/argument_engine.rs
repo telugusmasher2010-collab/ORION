@@ -1,4 +1,5 @@
 use chrono::Utc;
+use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -44,59 +45,59 @@ pub struct ArgumentEngine {
 }
 
 struct RiskyPattern {
-    substrings: Vec<&'static str>,
+    substrings: &'static [&'static str],
     reason: &'static str,
     risk: &'static str,
 }
 
 const RISKY_PATTERNS: &[RiskyPattern] = &[
     RiskyPattern {
-        substrings: vec!["just do it", "just build it", "just make it"],
+        substrings: &["just do it", "just build it", "just make it"],
         reason: "skipping planning",
         risk: "low",
     },
     RiskyPattern {
-        substrings: vec!["i'll do it later", "i'll finish tomorrow"],
+        substrings: &["i'll do it later", "i'll finish tomorrow"],
         reason: "procrastination",
         risk: "low",
     },
     RiskyPattern {
-        substrings: vec!["it should be easy", "how hard can it be"],
+        substrings: &["it should be easy", "how hard can it be"],
         reason: "underestimating complexity",
         risk: "low",
     },
     RiskyPattern {
-        substrings: vec!["buy now", "invest all"],
+        substrings: &["buy now", "invest all"],
         reason: "financial risk",
         risk: "high",
     },
     RiskyPattern {
-        substrings: vec!["delete everything", "remove all", "wipe"],
+        substrings: &["delete everything", "remove all", "wipe"],
         reason: "data destruction",
         risk: "high",
     },
     RiskyPattern {
-        substrings: vec!["give access", "grant permission"],
+        substrings: &["give access", "grant permission"],
         reason: "security concern",
         risk: "medium",
     },
     RiskyPattern {
-        substrings: vec!["no need to test", "skip testing"],
+        substrings: &["no need to test", "skip testing"],
         reason: "quality risk",
         risk: "medium",
     },
     RiskyPattern {
-        substrings: vec!["i know what i'm doing", "i'm sure"],
+        substrings: &["i know what i'm doing", "i'm sure"],
         reason: "overconfidence",
         risk: "low",
     },
     RiskyPattern {
-        substrings: vec!["quick fix", "hack", "workaround"],
+        substrings: &["quick fix", "hack", "workaround"],
         reason: "technical debt",
         risk: "low",
     },
     RiskyPattern {
-        substrings: vec!["copy paste", "from stackoverflow", "from github"],
+        substrings: &["copy paste", "from stackoverflow", "from github"],
         reason: "code quality",
         risk: "low",
     },
@@ -135,7 +136,7 @@ impl ArgumentEngine {
         let lower = user_input.to_lowercase();
 
         for item in RISKY_PATTERNS {
-            if contains_any(&lower, &item.substrings) {
+            if contains_any(&lower, item.substrings) {
                 return Some(json!({
                     "shouldArgue": true,
                     "reason": item.reason,

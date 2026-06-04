@@ -36,7 +36,7 @@ pub struct Agent {
     pub name: String,
     pub description: String,
     system_prompt: String,
-    status: String,
+    pub status: String,
     current_task: Option<String>,
     task_history: Vec<TaskEntry>,
 }

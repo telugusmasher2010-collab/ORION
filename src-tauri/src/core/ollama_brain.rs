@@ -34,7 +34,7 @@ impl OllamaBrain {
 
     pub fn check_health(&mut self) -> Result<bool, String> {
         let url = format!("{}/api/tags", self.host);
-        let (child, reader) = spawn_bridge("GET", &url, Value::Null, false)?;
+        let (mut child, reader) = spawn_bridge("GET", &url, Value::Null, false)?;
 
         let lines: Vec<String> = reader
             .lines()
@@ -90,7 +90,7 @@ impl OllamaBrain {
             "stream": false,
         });
 
-        let (child, reader) = spawn_bridge("POST", &url, body, false)?;
+        let (mut child, reader) = spawn_bridge("POST", &url, body, false)?;
 
         let lines: Vec<String> = reader
             .lines()
@@ -131,7 +131,7 @@ impl OllamaBrain {
             "stream": true,
         });
 
-        let (child, reader) = spawn_bridge("POST", &url, body, true)?;
+        let (mut child, reader) = spawn_bridge("POST", &url, body, true)?;
 
         let mut full_text = String::new();
         for line in reader.lines() {

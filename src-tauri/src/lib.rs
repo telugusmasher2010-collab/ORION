@@ -5,7 +5,6 @@ mod core;
 mod db;
 
 use std::sync::{Mutex, OnceLock};
-use tauri::Emitter;
 use tauri::Manager;
 
 // Global database instance
