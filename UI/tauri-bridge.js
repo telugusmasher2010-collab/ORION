@@ -60,12 +60,14 @@ window.orionBridge = {
 
     chat: async (message, sessionId) => {
         if (IS_TAURI) {
-            const text = await tauriInvoke('chat', { message, session_id: sessionId });
-            if (text === null) {
-                return { response: '', error: 'IPC call failed — check console' };
+            try {
+                const text = await window.__TAURI__.core.invoke('chat', { message, session_id: sessionId });
+                return { response: text || '' };
+            } catch (e) {
+                const errMsg = typeof e === 'string' ? e : (e.message || 'Unknown error');
+                console.error('[ORION] Chat error:', errMsg);
+                return { response: '', error: errMsg };
             }
-            // Wrap raw string in object shape frontend expects
-            return { response: text || '' };
         }
         return electronFallback('chat', message, sessionId);
     },

@@ -321,7 +321,9 @@ async function sendMessage() {
         const result = await window.orionBridge.chat(message, currentSessionId);
         console.log('[Renderer] Chat result received:', result);
 
-        if (result && result.response) {
+        if (result && result.error) {
+            showError(result.error);
+        } else if (result && result.response) {
             console.log('[Renderer] Response received, rendering...');
             finalizeStreamingMessage(result);
 
