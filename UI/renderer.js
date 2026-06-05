@@ -339,12 +339,6 @@ async function sendMessage() {
 
             // Speak the response if voice output is enabled
             speakText(result.response);
-
-            // Update mode indicator
-            if (result.mode) {
-                const indicatorEl = document.getElementById('brain-indicator');
-                if (indicatorEl) indicatorEl.textContent = result.mode;
-            }
         } else {
             showError('No response received');
         }
@@ -444,7 +438,8 @@ function updateStreamingMessage(chunk) {
 function finalizeStreamingMessage(result) {
     if (!currentStreamingMessage) return;
     const meta = currentStreamingMessage.querySelector('.message-meta');
-    meta.textContent = `${result.brain.label} · ${new Date().toLocaleTimeString()}`;
+    const brain = window._lastBrainInfo;
+    meta.textContent = brain ? `${brain.label} · ${new Date().toLocaleTimeString()}` : `ORION · ${new Date().toLocaleTimeString()}`;
 }
 
 function updateBrainIndicator(brain) {
@@ -457,6 +452,7 @@ function updateBrainIndicator(brain) {
 function showError(msg) {
     addMessage('orion', `[SYSTEM ERROR] ${msg}`);
 }
+window.showError = showError;
 
 function setProcessing(state) {
     isProcessing = state;
@@ -801,6 +797,7 @@ async function loadSessions() {
             const div = document.createElement('div');
             div.className = 'nav-item';
             div.dataset.sessionId = session.id;
+            div.dataset.title = session.title || 'New Chat';
             
             // Session title
             const titleSpan = document.createElement('span');
@@ -865,11 +862,11 @@ async function switchSession(sessionId, title) {
     await loadHistory();
     showView('chat-area');
 
-    // Update active state in sidebar
+    // Update active state in sidebar (compare by data attribute, not textContent)
     const items = document.querySelectorAll('#chat-list .nav-item');
     items.forEach(item => {
         item.classList.remove('active');
-        if (item.textContent === title) {
+        if (item.getAttribute('data-title') === title) {
             item.classList.add('active');
         }
     });

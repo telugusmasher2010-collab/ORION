@@ -90,8 +90,14 @@ window.orionBridge = {
                     if (bridge._onChunkCallback) bridge._onChunkCallback(`\n[Error: ${event.payload?.error || 'Unknown'}]`);
                 });
 
-                bridge._doneUnlisten = await window.__TAURI__.event.listen('chat_done', () => {
-                    // Streaming completed — frontend can trigger final render
+                bridge._doneUnlisten = await window.__TAURI__.event.listen('chat_done', (event) => {
+                    if (event.payload) {
+                        window._lastBrainInfo = {
+                            brain: event.payload.brain,
+                            model: event.payload.model,
+                            label: event.payload.label
+                        };
+                    }
                 });
             }
             return;

@@ -856,7 +856,7 @@ async function saveClient() {
         if (id) {
             await window.orionBridge.updateClient(parseInt(id), { name, email, phone, notes });
         } else {
-            await window.orionBridge.createClient(name, email, phone, notes);
+            await window.orionBridge.createClient({ name, email, phone, notes });
         }
         closeClientModal();
         loadClientsView();
@@ -996,7 +996,7 @@ async function saveLead() {
         if (id) {
             await window.orionBridge.updateLead(parseInt(id), { name, company, email, phone, stage, value, notes });
         } else {
-            await window.orionBridge.createLead(name, email, phone, company, stage, value, notes);
+            await window.orionBridge.createLead({ name, company, email, phone, stage, value, notes });
         }
         closeLeadModal();
         loadLeadsView();
@@ -1108,7 +1108,8 @@ async function loadRightSidebar() {
 async function loadSessionInfo() {
     try {
         const modeInfo = await window.orionBridge.getMode();
-        const history = await window.orionBridge.getHistory();
+        let sessionId = await window.orionBridge.getCurrentSessionId();
+        const history = sessionId ? await window.orionBridge.getHistory(sessionId) : [];
 
         const elMode = document.getElementById('right-session-mode');
         const elMsgs = document.getElementById('right-session-msgs');
@@ -1132,7 +1133,8 @@ async function loadSystemStatus() {
 
 async function loadRecentActivity() {
     try {
-        const history = await window.orionBridge.getHistory();
+        let sessionId = await window.orionBridge.getCurrentSessionId();
+        const history = sessionId ? await window.orionBridge.getHistory(sessionId) : [];
         const container = document.getElementById('activity-list');
         if (!container) return;
 

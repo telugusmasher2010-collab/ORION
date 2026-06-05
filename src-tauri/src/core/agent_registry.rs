@@ -88,7 +88,8 @@ impl AgentRegistry {
         let agent = self.agents.get_mut(&agent_id)
             .ok_or_else(|| format!("Agent '{}' not found", agent_id))?;
 
-        println!("[AgentRegistry] Routing to {}: {}...", agent.name, &task[..task.len().min(80)]);
+        let preview: String = task.chars().take(80).collect();
+        println!("[AgentRegistry] Routing to {}: {}...", agent.name, preview);
 
         let response = agent.execute(task, settings)?;
         let info = agent.get_info();
