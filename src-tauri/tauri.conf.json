@@ -39,7 +39,6 @@
       "../CORE/systems_rules.md.txt": "CORE/systems_rules.md.txt",
       "../PROMPTS/master_prompt.md.txt": "PROMPTS/master_prompt.md.txt",
       "../PROMPTS/startup_prompt.md.txt": "PROMPTS/startup_prompt.md.txt",
-      "../CONFIG/settings.json": "CONFIG/settings.json",
       "../CONFIG/constraints.md.txt": "CONFIG/constraints.md.txt",
       "../CONFIG/modes.json": "CONFIG/modes.json",
       "../MEMORY/long_term_memory.md.txt": "MEMORY/long_term_memory.md.txt"

@@ -109,9 +109,6 @@ fn read_settings_file() -> (serde_json::Value, bool) {
     paths.push(std::path::PathBuf::from("../CONFIG/settings.json"));
     paths.push(std::path::PathBuf::from("../../CONFIG/settings.json"));
     paths.push(std::path::PathBuf::from("../../../CONFIG/settings.json"));
-    if let Some(rd) = RESOURCE_DIR.get() {
-        paths.push(rd.join("CONFIG/settings.json"));
-    }
     if let Ok(exe) = std::env::current_exe() {
         if let Some(parent) = exe.parent() {
             paths.push(parent.join("CONFIG/settings.json"));
@@ -656,15 +653,49 @@ pub fn run() {
                 resource_dir.join("CORE/http-bridge.js").to_string_lossy().to_string()
             );
 
-            // Copy settings.json from resources to app data dir on first run
-            let settings_src = resource_dir.join("CONFIG/settings.json");
+            // Ensure settings.json exists in app data dir (writable copy)
             let settings_dst = data_dir.join("CONFIG/settings.json");
-            if settings_src.exists() && !settings_dst.exists() {
+            if !settings_dst.exists() {
                 if let Some(parent) = settings_dst.parent() {
                     let _ = std::fs::create_dir_all(parent);
                 }
-                let _ = std::fs::copy(&settings_src, &settings_dst);
-                println!("[ORION] Copied settings to {:?}", settings_dst);
+                // Try copying from known locations
+                let mut found = false;
+                for src in &[resource_dir.join("CONFIG/settings.json"),
+                             std::path::PathBuf::from("../CONFIG/settings.json"),
+                             std::path::PathBuf::from("../../CONFIG/settings.json")]
+                {
+                    if src.exists() {
+                        let _ = std::fs::copy(src, &settings_dst);
+                        println!("[ORION] Copied settings from {:?}", src);
+                        found = true;
+                        break;
+                    }
+                }
+                if !found {
+                    // Create default settings.json
+                    let default = serde_json::json!({
+                        "ollama": {
+                            "enabled": true,
+                            "host": "http://localhost:11434",
+                            "models": {
+                                "fast": "qwen2.5-coder:1.5b",
+                                "coder": "qwen2.5-coder:7b-instruct-q4_K_M",
+                                "manager": "qwen3.5:latest",
+                                "reasoning": "qwen3:14b-q4_K_M"
+                            }
+                        },
+                        "routing": {
+                            "localFirst": true,
+                            "internetTasksUseCloud": true
+                        },
+                        "personality": {
+                            "systemPrompt": "You are ORION, a personal AI assistant. Be helpful, concise, and direct."
+                        }
+                    });
+                    let _ = std::fs::write(&settings_dst, serde_json::to_string_pretty(&default).unwrap());
+                    println!("[ORION] Created default settings at {:?}", settings_dst);
+                }
             }
 
             // Initialize personality engine from resource files
