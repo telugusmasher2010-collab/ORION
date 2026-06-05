@@ -99,13 +99,16 @@ fn close_window(app: tauri::AppHandle) {
 // ========================================
 
 static RESOURCE_DIR: OnceLock<std::path::PathBuf> = OnceLock::new();
+static DATA_DIR: OnceLock<std::path::PathBuf> = OnceLock::new();
 
 fn read_settings_file() -> (serde_json::Value, bool) {
-    let mut paths = vec![
-        std::path::PathBuf::from("../CONFIG/settings.json"),
-        std::path::PathBuf::from("../../CONFIG/settings.json"),
-        std::path::PathBuf::from("../../../CONFIG/settings.json"),
-    ];
+    let mut paths = Vec::new();
+    if let Some(dd) = DATA_DIR.get() {
+        paths.push(dd.join("CONFIG/settings.json"));
+    }
+    paths.push(std::path::PathBuf::from("../CONFIG/settings.json"));
+    paths.push(std::path::PathBuf::from("../../CONFIG/settings.json"));
+    paths.push(std::path::PathBuf::from("../../../CONFIG/settings.json"));
     if let Some(rd) = RESOURCE_DIR.get() {
         paths.push(rd.join("CONFIG/settings.json"));
     }
@@ -632,6 +635,7 @@ pub fn run() {
             let data_dir = app.path().app_data_dir().unwrap_or_else(|_| {
                 std::path::PathBuf::from("../DATA")
             });
+            let _ = DATA_DIR.set(data_dir.clone());
             let db_path = data_dir.join("orion.db");
             println!("[ORION] Database path: {:?}", db_path);
 
@@ -651,6 +655,17 @@ pub fn run() {
             core::constants::set_bridge_path(
                 resource_dir.join("CORE/http-bridge.js").to_string_lossy().to_string()
             );
+
+            // Copy settings.json from resources to app data dir on first run
+            let settings_src = resource_dir.join("CONFIG/settings.json");
+            let settings_dst = data_dir.join("CONFIG/settings.json");
+            if settings_src.exists() && !settings_dst.exists() {
+                if let Some(parent) = settings_dst.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
+                let _ = std::fs::copy(&settings_src, &settings_dst);
+                println!("[ORION] Copied settings to {:?}", settings_dst);
+            }
 
             // Initialize personality engine from resource files
             let personality = core::personality_engine::PersonalityEngine::new(&resource_dir);
