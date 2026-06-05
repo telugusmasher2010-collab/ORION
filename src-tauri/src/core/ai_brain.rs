@@ -198,6 +198,12 @@ fn ollama_request(
     }
 
     let _ = child.wait();
+    if full_text.is_empty() {
+        let err = capture_stderr(&mut child);
+        if !err.is_empty() {
+            return Err(format!("Bridge: {}", err));
+        }
+    }
     Ok(full_text)
 }
 
@@ -214,6 +220,17 @@ struct BridgeRequest {
     headers: std::collections::HashMap<String, String>,
     body: Value,
     stream: bool,
+}
+
+fn capture_stderr(child: &mut std::process::Child) -> String {
+    use std::io::Read;
+    if let Some(stderr) = child.stderr.take() {
+        let mut buf = String::new();
+        let _ = std::io::BufReader::new(stderr).read_to_string(&mut buf);
+        buf.trim().to_string()
+    } else {
+        String::new()
+    }
 }
 
 // ========================================
@@ -294,6 +311,12 @@ fn groq_request(
     }
 
     let _ = child.wait();
+    if full_text.is_empty() {
+        let err = capture_stderr(&mut child);
+        if !err.is_empty() {
+            return Err(format!("Bridge: {}", err));
+        }
+    }
     Ok(full_text)
 }
 
@@ -379,6 +402,12 @@ fn openrouter_request(
     }
 
     let _ = child.wait();
+    if full_text.is_empty() {
+        let err = capture_stderr(&mut child);
+        if !err.is_empty() {
+            return Err(format!("Bridge: {}", err));
+        }
+    }
     Ok(full_text)
 }
 
@@ -475,5 +504,11 @@ fn gemini_request(
     }
 
     let _ = child.wait();
+    if full_text.is_empty() {
+        let err = capture_stderr(&mut child);
+        if !err.is_empty() {
+            return Err(format!("Bridge: {}", err));
+        }
+    }
     Ok(full_text)
 }
