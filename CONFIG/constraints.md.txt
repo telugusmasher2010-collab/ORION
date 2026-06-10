@@ -6,14 +6,11 @@ Time Constraints:
 - Study time cannot be reduced for earning tasks.
 
 Scope Constraints:
-- Phase 1 only.
-- No automation.
-- No external tools unless explicitly allowed.
+- No expanding features mid-week.
+- No system redesign during execution days.
 
 Behavior Constraints:
 - No multitasking.
-- No expanding features mid-week.
-- No system redesign during execution days.
 
 Earning Constraints:
 - Only low-risk, ethical methods.

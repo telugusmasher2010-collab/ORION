@@ -1,0 +1,1768 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ORION — Stripe-Style Session & Project Manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  /* ===== RESET & BASE ===== */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; }
+
+  body {
+    background: #0d0d1a;
+    color: rgba(255,255,255,0.85);
+    font-weight: 300;
+    font-size: 14px;
+    line-height: 1.6;
+    overflow: hidden;
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    top: -40%;
+    left: -20%;
+    width: 140%;
+    height: 140%;
+    background:
+      radial-gradient(ellipse at 20% 30%, rgba(99,91,255,0.08) 0%, transparent 55%),
+      radial-gradient(ellipse at 80% 70%, rgba(124,92,252,0.06) 0%, transparent 50%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.16); }
+
+  .app {
+    display: flex;
+    height: 100vh;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* ===== GLASS MIXINS ===== */
+  .glass {
+    background: rgba(255,255,255,0.04);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+  }
+
+  .glass-strong {
+    background: rgba(255,255,255,0.06);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+  }
+
+  /* ===== SIDEBAR ===== */
+  .sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 24px 14px 16px;
+    border-right: 1px solid rgba(255,255,255,0.05);
+    position: relative;
+    z-index: 2;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0 10px 24px;
+  }
+
+  .logo-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #635bff, #7c5cfc);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(99,91,255,0.3);
+  }
+
+  .logo-text {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    color: #fff;
+  }
+
+  /* Navigation */
+  .nav { display: flex; flex-direction: column; gap: 3px; padding: 0 2px; }
+
+  .nav-section-label {
+    font-size: 10.5px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.28);
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    padding: 18px 8px 7px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 9px 12px;
+    border-radius: 10px;
+    color: rgba(255,255,255,0.50);
+    font-weight: 400;
+    font-size: 13.5px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+
+  .nav-item:hover { color: rgba(255,255,255,0.85); background: rgba(255,255,255,0.04); }
+  .nav-item.active {
+    color: #fff;
+    background: rgba(99,91,255,0.12);
+    border: 1px solid rgba(99,91,255,0.15);
+  }
+
+  .nav-item .icon {
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    opacity: 0.6;
+    flex-shrink: 0;
+  }
+
+  .nav-item.active .icon { opacity: 1; }
+
+  .nav-item .badge {
+    margin-left: auto;
+    font-size: 10.5px;
+    font-weight: 500;
+    background: rgba(99,91,255,0.2);
+    color: #a89bff;
+    padding: 2px 7px;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+
+  /* ===== SIDEBAR — PROJECTS SECTION ===== */
+  .sidebar-projects {
+    flex: 1;
+    overflow-y: auto;
+    margin: 12px 0 10px;
+    padding-right: 2px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .sidebar-projects-label {
+    font-size: 10.5px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.28);
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    padding: 4px 8px 6px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sidebar-projects-label .add-project {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    background: transparent;
+    border: 1px solid rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.15s;
+  }
+
+  .sidebar-projects-label .add-project:hover {
+    background: rgba(99,91,255,0.12);
+    border-color: rgba(99,91,255,0.2);
+    color: #a89bff;
+  }
+
+  /* Project card in sidebar — glass-morphism showing sessions */
+  .project-card {
+    background: rgba(255,255,255,0.03);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .project-card:hover {
+    background: rgba(255,255,255,0.05);
+    border-color: rgba(99,91,255,0.12);
+  }
+
+  .project-card.active {
+    background: rgba(99,91,255,0.08);
+    border-color: rgba(99,91,255,0.18);
+  }
+
+  .project-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+  }
+
+  .project-card-name {
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.8);
+  }
+
+  .project-card-count {
+    font-size: 10.5px;
+    font-weight: 500;
+    background: rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.4);
+    padding: 1px 7px;
+    border-radius: 5px;
+  }
+
+  .project-card-sessions {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: 6px;
+    padding-left: 4px;
+  }
+
+  .session-pill {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-size: 11.5px;
+    font-weight: 300;
+    color: rgba(255,255,255,0.35);
+    padding: 3px 6px;
+    border-radius: 6px;
+    transition: all 0.15s;
+  }
+
+  .session-pill:hover {
+    color: rgba(255,255,255,0.6);
+    background: rgba(255,255,255,0.03);
+  }
+
+  .session-pill .session-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.15);
+    flex-shrink: 0;
+  }
+
+  .session-pill .session-dot.active {
+    background: #2ed573;
+    box-shadow: 0 0 6px rgba(46,213,115,0.3);
+  }
+
+  .session-pill .session-dot.idle {
+    background: #f5a623;
+    box-shadow: 0 0 6px rgba(245,166,35,0.2);
+  }
+
+  .session-pill .session-time {
+    margin-left: auto;
+    font-size: 10px;
+    color: rgba(255,255,255,0.2);
+    flex-shrink: 0;
+  }
+
+  /* Bottom of sidebar */
+  .sidebar-bottom {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+  }
+
+  .btn-new-session {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 11px 16px;
+    border-radius: 10px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    text-decoration: none;
+    background: linear-gradient(135deg, #635bff, #7c5cfc);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(99,91,255,0.25);
+  }
+
+  .btn-new-session:hover {
+    box-shadow: 0 6px 24px rgba(99,91,255,0.35);
+    transform: translateY(-1px);
+  }
+
+  /* User profile */
+  .user-profile {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 12px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.05);
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .user-profile:hover { background: rgba(255,255,255,0.06); }
+
+  .user-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #635bff, #7c5cfc);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 500;
+    color: #fff;
+    flex-shrink: 0;
+  }
+
+  .user-info { flex: 1; min-width: 0; }
+  .user-name { font-size: 13px; font-weight: 500; color: #fff; }
+  .user-status {
+    font-size: 11px;
+    color: rgba(255,255,255,0.4);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #2ed573;
+    display: inline-block;
+  }
+
+  /* ===== CENTER PANEL ===== */
+  .center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: 24px 32px 0;
+    position: relative;
+    z-index: 2;
+    overflow: hidden;
+  }
+
+  /* ===== PROJECT HEADER ===== */
+  .project-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-shrink: 0;
+  }
+
+  .project-header-left {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .project-header-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, rgba(99,91,255,0.15), rgba(124,92,252,0.10));
+    border: 1px solid rgba(99,91,255,0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+  }
+
+  .project-header-info h1 {
+    font-size: 22px;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: -0.3px;
+    line-height: 1.2;
+  }
+
+  .project-header-meta {
+    font-size: 12px;
+    color: rgba(255,255,255,0.35);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 1px;
+  }
+
+  .project-header-meta .meta-dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.2);
+  }
+
+  .project-header-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .btn-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.4);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 15px;
+  }
+
+  .btn-icon:hover {
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.7);
+  }
+
+  .btn-sm {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    border-radius: 9px;
+    font-family: 'Inter', sans-serif;
+    font-size: 12.5px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+    text-decoration: none;
+  }
+
+  .btn-sm-primary {
+    background: linear-gradient(135deg, #635bff, #7c5cfc);
+    color: #fff;
+    box-shadow: 0 3px 12px rgba(99,91,255,0.2);
+  }
+
+  .btn-sm-primary:hover {
+    box-shadow: 0 5px 18px rgba(99,91,255,0.3);
+    transform: translateY(-1px);
+  }
+
+  .btn-sm-secondary {
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.75);
+    border: 1px solid rgba(255,255,255,0.07);
+  }
+
+  .btn-sm-secondary:hover {
+    background: rgba(255,255,255,0.10);
+  }
+
+  /* ===== SESSION BROWSER ===== */
+  .session-browser {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    padding-bottom: 16px;
+  }
+
+  .session-browser-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    padding-bottom: 0;
+    flex-shrink: 0;
+  }
+
+  .session-tab {
+    padding: 8px 18px;
+    border-radius: 8px 8px 0 0;
+    font-size: 13px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.4);
+    cursor: pointer;
+    transition: all 0.15s;
+    border: none;
+    background: none;
+    font-family: 'Inter', sans-serif;
+    position: relative;
+  }
+
+  .session-tab:hover {
+    color: rgba(255,255,255,0.7);
+    background: rgba(255,255,255,0.03);
+  }
+
+  .session-tab.active {
+    color: #fff;
+    font-weight: 500;
+  }
+
+  .session-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #635bff, #7c5cfc);
+    border-radius: 2px 2px 0 0;
+  }
+
+  .session-tab .tab-count {
+    font-size: 11px;
+    background: rgba(255,255,255,0.06);
+    padding: 1px 7px;
+    border-radius: 5px;
+    margin-left: 6px;
+    color: rgba(255,255,255,0.3);
+  }
+
+  .session-tab.active .tab-count {
+    background: rgba(99,91,255,0.15);
+    color: #a89bff;
+  }
+
+  /* Session list / grid */
+  .session-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    overflow-y: auto;
+    flex: 1;
+    padding-right: 4px;
+  }
+
+  .session-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 18px;
+    background: rgba(255,255,255,0.025);
+    border: 1px solid rgba(255,255,255,0.04);
+    border-radius: 14px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .session-row:hover {
+    background: rgba(255,255,255,0.04);
+    border-color: rgba(99,91,255,0.10);
+  }
+
+  .session-row.active {
+    background: rgba(99,91,255,0.06);
+    border-color: rgba(99,91,255,0.15);
+  }
+
+  .session-row-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .session-row-indicator.active { background: #2ed573; box-shadow: 0 0 8px rgba(46,213,115,0.3); }
+  .session-row-indicator.idle { background: #f5a623; box-shadow: 0 0 8px rgba(245,166,35,0.2); }
+  .session-row-indicator.archived { background: rgba(255,255,255,0.12); }
+
+  .session-row-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: rgba(255,255,255,0.04);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .session-row-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .session-row-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.85);
+    margin-bottom: 1px;
+  }
+
+  .session-row-desc {
+    font-size: 12.5px;
+    font-weight: 300;
+    color: rgba(255,255,255,0.35);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .session-row-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    font-size: 11.5px;
+    color: rgba(255,255,255,0.25);
+  }
+
+  .session-row-meta .message-count {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .session-row-actions {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .session-row:hover .session-row-actions { opacity: 1; }
+
+  .session-row-action {
+    width: 28px;
+    height: 28px;
+    border-radius: 7px;
+    background: transparent;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.25);
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.15s;
+  }
+
+  .session-row-action:hover {
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.5);
+  }
+
+  /* ===== CHAT VIEW (toggled) ===== */
+  .chat-view {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    display: none;
+  }
+
+  .chat-view.visible {
+    display: flex;
+  }
+
+  .chat-view-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    margin-bottom: 12px;
+    flex-shrink: 0;
+  }
+
+  .chat-view-back {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.06);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.4);
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.15s;
+    flex-shrink: 0;
+  }
+
+  .chat-view-back:hover {
+    background: rgba(255,255,255,0.08);
+    color: rgba(255,255,255,0.7);
+  }
+
+  .chat-view-info { flex: 1; min-width: 0; }
+  .chat-view-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: #fff;
+  }
+
+  .chat-view-subtitle {
+    font-size: 12px;
+    font-weight: 300;
+    color: rgba(255,255,255,0.35);
+  }
+
+  .chat-view-actions {
+    display: flex;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  /* Messages area */
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding-right: 4px;
+    margin-bottom: 14px;
+  }
+
+  .message {
+    max-width: 80%;
+    padding: 14px 18px;
+    border-radius: 14px;
+    font-weight: 300;
+    font-size: 14px;
+    line-height: 1.6;
+    animation: msgIn 0.3s ease;
+  }
+
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .message.user {
+    align-self: flex-end;
+    background: linear-gradient(135deg, rgba(99,91,255,0.20), rgba(124,92,252,0.15));
+    border: 1px solid rgba(99,91,255,0.12);
+    color: rgba(255,255,255,0.9);
+    border-bottom-right-radius: 4px;
+  }
+
+  .message.assistant {
+    align-self: flex-start;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.05);
+    color: rgba(255,255,255,0.85);
+    border-bottom-left-radius: 4px;
+  }
+
+  .message .msg-author {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.3);
+    margin-bottom: 4px;
+    letter-spacing: 0.2px;
+  }
+
+  .message.assistant .msg-author { color: rgba(124,92,252,0.6); }
+
+  .message .msg-time {
+    font-size: 11px;
+    color: rgba(255,255,255,0.2);
+    margin-top: 6px;
+    text-align: right;
+  }
+
+  .message .code-inline {
+    background: rgba(255,255,255,0.06);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 13px;
+    color: #a89bff;
+  }
+
+  /* Chat input */
+  .chat-input-wrap {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    padding: 12px 16px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 16px;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+
+  .chat-input-wrap:focus-within {
+    border-color: rgba(99,91,255,0.25);
+    background: rgba(255,255,255,0.05);
+  }
+
+  .chat-input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    font-weight: 300;
+    color: rgba(255,255,255,0.85);
+    resize: none;
+    line-height: 1.5;
+    min-height: 24px;
+    max-height: 120px;
+  }
+
+  .chat-input::placeholder { color: rgba(255,255,255,0.25); }
+
+  .chat-input-tools {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .chat-tool-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    background: transparent;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255,255,255,0.3);
+    cursor: pointer;
+    transition: all 0.15s;
+    font-size: 16px;
+  }
+
+  .chat-tool-btn:hover { color: rgba(255,255,255,0.6); background: rgba(255,255,255,0.04); }
+
+  .send-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #635bff, #7c5cfc);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 16px;
+    box-shadow: 0 4px 12px rgba(99,91,255,0.25);
+    flex-shrink: 0;
+  }
+
+  .send-btn:hover {
+    box-shadow: 0 6px 20px rgba(99,91,255,0.35);
+    transform: translateY(-1px);
+  }
+
+  /* Empty state for session browser */
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 40px;
+    gap: 12px;
+  }
+
+  .empty-state-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 20px;
+    background: rgba(99,91,255,0.08);
+    border: 1px solid rgba(99,91,255,0.10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    margin-bottom: 4px;
+  }
+
+  .empty-state-title {
+    font-size: 17px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.6);
+  }
+
+  .empty-state-desc {
+    font-size: 13px;
+    font-weight: 300;
+    color: rgba(255,255,255,0.3);
+    max-width: 360px;
+    line-height: 1.6;
+  }
+
+  /* ===== RIGHT PANEL ===== */
+  .right-panel {
+    width: 300px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 24px 20px 20px;
+    border-left: 1px solid rgba(255,255,255,0.05);
+    overflow-y: auto;
+    gap: 18px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .mini-card {
+    background: rgba(255,255,255,0.03);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.05);
+    border-radius: 14px;
+    padding: 20px;
+    transition: all 0.2s;
+  }
+
+  .mini-card:hover {
+    border-color: rgba(255,255,255,0.07);
+  }
+
+  .mini-card-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.28);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 14px;
+  }
+
+  /* System info meters */
+  .usage-meter {
+    margin-bottom: 10px;
+  }
+
+  .usage-meter:last-child { margin-bottom: 0; }
+
+  .usage-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+  }
+
+  .usage-label {
+    font-size: 13px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.5);
+  }
+
+  .usage-count {
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.7);
+  }
+
+  .usage-bar {
+    height: 4px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 10px;
+  }
+
+  .usage-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: linear-gradient(90deg, #635bff, #7c5cfc);
+    transition: width 0.4s ease;
+  }
+
+  .usage-bar-fill.warning { background: linear-gradient(90deg, #f5a623, #f7b731); }
+  .usage-bar-fill.danger { background: linear-gradient(90deg, #ff6b6b, #ee5a24); }
+
+  /* Project stats in right panel */
+  .project-stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .project-stat {
+    background: rgba(255,255,255,0.02);
+    border-radius: 10px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .project-stat-value {
+    font-size: 22px;
+    font-weight: 600;
+    color: #fff;
+    letter-spacing: -0.3px;
+    line-height: 1.2;
+  }
+
+  .project-stat-label {
+    font-size: 11px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.35);
+    margin-top: 2px;
+  }
+
+  /* Recent sessions in right panel */
+  .recent-session-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.03);
+  }
+
+  .recent-session-item:last-child { border-bottom: none; }
+
+  .recent-session-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .recent-session-dot.online { background: #2ed573; }
+  .recent-session-dot.idle { background: #f5a623; }
+
+  .recent-session-info { flex: 1; min-width: 0; }
+  .recent-session-name {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: rgba(255,255,255,0.65);
+  }
+
+  .recent-session-project {
+    font-size: 11px;
+    font-weight: 300;
+    color: rgba(255,255,255,0.25);
+  }
+
+  .recent-session-time {
+    font-size: 10.5px;
+    color: rgba(255,255,255,0.2);
+    flex-shrink: 0;
+  }
+
+  /* Capabilities list */
+  .feature-list { list-style: none; }
+
+  .feature-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 0;
+    font-size: 13px;
+    font-weight: 300;
+    color: rgba(255,255,255,0.5);
+  }
+
+  .feature-item .check {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(99,91,255,0.10);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    color: #7c5cfc;
+    flex-shrink: 0;
+  }
+
+  /* Divider */
+  .divider {
+    height: 1px;
+    background: rgba(255,255,255,0.05);
+    margin: 4px 0;
+  }
+
+  /* Typography helpers */
+  .text-gradient {
+    background: linear-gradient(135deg, #635bff, #a89bff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 1200px) {
+    .right-panel { width: 260px; padding: 20px 16px 16px; }
+    .sidebar { width: 230px; padding: 20px 10px 14px; }
+  }
+
+  @media (max-width: 1024px) {
+    .right-panel { display: none; }
+    .sidebar { width: 64px; padding: 18px 6px 10px; }
+    .sidebar .logo-text,
+    .sidebar .nav-item span:not(.icon),
+    .sidebar .nav-item .badge,
+    .sidebar .nav-section-label,
+    .sidebar .sidebar-projects-label,
+    .sidebar .sidebar-projects,
+    .sidebar .user-info,
+    .sidebar .btn-new-session span { display: none; }
+    .sidebar .nav-item { justify-content: center; padding: 10px; }
+    .sidebar .user-profile { justify-content: center; padding: 8px; }
+    .sidebar .btn-new-session { justify-content: center; padding: 10px; width: 40px; margin: 0 auto; }
+    .center { padding: 18px 16px 0; }
+    .session-grid { gap: 6px; }
+  }
+
+  @media (max-width: 640px) {
+    .sidebar { display: none; }
+    .center { padding: 14px 12px 0; }
+    .project-header { flex-direction: column; align-items: flex-start; gap: 12px; }
+    .message { max-width: 92%; }
+  }
+
+  /* Small animations */
+  .glow-pulse {
+    animation: glowPulse 3s ease-in-out infinite;
+  }
+
+  @keyframes glowPulse {
+    0%, 100% { box-shadow: 0 0 20px rgba(99,91,255,0.08); }
+    50% { box-shadow: 0 0 30px rgba(99,91,255,0.16); }
+  }
+
+  /* Session browser / chat toggle */
+  .view-toggle { display: contents; }
+  .view-toggle .session-browser { display: flex; }
+  .view-toggle .chat-view { display: none; }
+  .view-toggle.show-chat .session-browser { display: none; }
+  .view-toggle.show-chat .chat-view { display: flex; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ====== SIDEBAR ====== -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-icon">✦</div>
+      <span class="logo-text">ORION</span>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-section-label">Main</div>
+
+      <a class="nav-item active" href="#" data-view="dashboard">
+        <span class="icon">◇</span>
+        <span>Dashboard</span>
+      </a>
+      <a class="nav-item" href="#" data-view="projects">
+        <span class="icon">▣</span>
+        <span>Projects</span>
+        <span class="badge">4</span>
+      </a>
+      <a class="nav-item" href="#" data-view="memory">
+        <span class="icon">◉</span>
+        <span>Memory</span>
+      </a>
+      <a class="nav-item" href="#" data-view="settings">
+        <span class="icon">⚙</span>
+        <span>Settings</span>
+      </a>
+      <a class="nav-item" href="#" data-view="terminal">
+        <span class="icon">⌘</span>
+        <span>Terminal</span>
+      </a>
+    </nav>
+
+    <!-- Projects Section with Session Cards -->
+    <div class="sidebar-projects">
+      <div class="sidebar-projects-label">
+        <span>Projects</span>
+        <button class="add-project" title="New Project">+</button>
+      </div>
+
+      <!-- Project Card 1: Vertex Dashboard -->
+      <div class="project-card active" data-project="vertex-dashboard">
+        <div class="project-card-header">
+          <span class="project-card-name">Vertex Dashboard</span>
+          <span class="project-card-count">4</span>
+        </div>
+        <div class="project-card-sessions">
+          <div class="session-pill" data-session="layout-refactor">
+            <span class="session-dot active"></span>
+            Layout refactor
+            <span class="session-time">2m</span>
+          </div>
+          <div class="session-pill" data-session="api-integration">
+            <span class="session-dot idle"></span>
+            API integration
+            <span class="session-time">1h</span>
+          </div>
+          <div class="session-pill" data-session="widget-tests">
+            <span class="session-dot" style="background:rgba(255,255,255,0.12)"></span>
+            Widget tests
+            <span class="session-time">3h</span>
+          </div>
+          <div class="session-pill" data-session="deploy-pipeline">
+            <span class="session-dot" style="background:rgba(255,255,255,0.12)"></span>
+            Deploy pipeline
+            <span class="session-time">1d</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Project Card 2: API Gateway -->
+      <div class="project-card" data-project="api-gateway">
+        <div class="project-card-header">
+          <span class="project-card-name">API Gateway</span>
+          <span class="project-card-count">2</span>
+        </div>
+        <div class="project-card-sessions">
+          <div class="session-pill" data-session="auth-refactor">
+            <span class="session-dot active"></span>
+            Auth refactor
+            <span class="session-time">5m</span>
+          </div>
+          <div class="session-pill" data-session="rate-limiting">
+            <span class="session-dot" style="background:rgba(255,255,255,0.12)"></span>
+            Rate limiting
+            <span class="session-time">6h</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Project Card 3: React Components -->
+      <div class="project-card" data-project="react-components">
+        <div class="project-card-header">
+          <span class="project-card-name">React Components</span>
+          <span class="project-card-count">3</span>
+        </div>
+        <div class="project-card-sessions">
+          <div class="session-pill" data-session="data-table">
+            <span class="session-dot idle"></span>
+            Data table
+            <span class="session-time">30m</span>
+          </div>
+          <div class="session-pill" data-session="form-builder">
+            <span class="session-dot" style="background:rgba(255,255,255,0.12)"></span>
+            Form builder
+            <span class="session-time">2h</span>
+          </div>
+          <div class="session-pill" data-session="theme-system">
+            <span class="session-dot" style="background:rgba(255,255,255,0.12)"></span>
+            Theme system
+            <span class="session-time">1d</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Project Card 4: Research Notes -->
+      <div class="project-card" data-project="research-notes">
+        <div class="project-card-header">
+          <span class="project-card-name">Research Notes</span>
+          <span class="project-card-count">1</span>
+        </div>
+        <div class="project-card-sessions">
+          <div class="session-pill" data-session="llm-paper-review">
+            <span class="session-dot idle"></span>
+            LLM paper review
+            <span class="session-time">45m</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom: New Session + Profile -->
+    <div class="sidebar-bottom">
+      <button class="btn-new-session">
+        <span>✦</span>
+        <span>New Session</span>
+      </button>
+
+      <div class="user-profile">
+        <div class="user-avatar">A</div>
+        <div class="user-info">
+          <div class="user-name">Abhi</div>
+          <div class="user-status">
+            <span class="status-dot"></span>
+            Online
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ====== CENTER PANEL ====== -->
+  <main class="center">
+
+    <!-- Project Header -->
+    <div class="project-header">
+      <div class="project-header-left">
+        <div class="project-header-icon">▣</div>
+        <div class="project-header-info">
+          <h1>Vertex Dashboard</h1>
+          <div class="project-header-meta">
+            <span>4 sessions</span>
+            <span class="meta-dot"></span>
+            <span>Last active 2 min ago</span>
+            <span class="meta-dot"></span>
+            <span style="color:#2ed573;">● Active</span>
+          </div>
+        </div>
+      </div>
+      <div class="project-header-actions">
+        <button class="btn-sm btn-sm-secondary">✦ New Session</button>
+        <button class="btn-icon" title="Project Settings">⋯</button>
+      </div>
+    </div>
+
+    <!-- View Toggle: Session Browser <-> Chat -->
+    <div class="view-toggle" id="viewToggle">
+
+      <!-- ===== SESSION BROWSER ===== -->
+      <div class="session-browser">
+        <div class="session-browser-tabs">
+          <button class="session-tab active">
+            All Sessions
+            <span class="tab-count">4</span>
+          </button>
+          <button class="session-tab">
+            Active
+            <span class="tab-count">2</span>
+          </button>
+          <button class="session-tab">
+            Archived
+            <span class="tab-count">2</span>
+          </button>
+        </div>
+
+        <div class="session-grid">
+
+          <!-- Session Row 1 -->
+          <div class="session-row active" data-session="layout-refactor" onclick="openSession(this)">
+            <span class="session-row-indicator active"></span>
+            <div class="session-row-icon">◈</div>
+            <div class="session-row-content">
+              <div class="session-row-title">Layout refactor</div>
+              <div class="session-row-desc">Refactoring the main dashboard grid to use CSS Grid with responsive breakpoints. Discussing component composition and state lifting.</div>
+            </div>
+            <div class="session-row-meta">
+              <span class="message-count">♢ 47</span>
+              <span>2m ago</span>
+            </div>
+            <div class="session-row-actions">
+              <button class="session-row-action" title="Archive">📁</button>
+              <button class="session-row-action" title="More">⋯</button>
+            </div>
+          </div>
+
+          <!-- Session Row 2 -->
+          <div class="session-row" data-session="api-integration" onclick="openSession(this)">
+            <span class="session-row-indicator idle"></span>
+            <div class="session-row-icon">⇌</div>
+            <div class="session-row-content">
+              <div class="session-row-title">API integration</div>
+              <div class="session-row-desc">Connecting the dashboard to the new analytics endpoint. Error handling patterns and data transformation layer.</div>
+            </div>
+            <div class="session-row-meta">
+              <span class="message-count">♢ 23</span>
+              <span>1h ago</span>
+            </div>
+            <div class="session-row-actions">
+              <button class="session-row-action" title="Archive">📁</button>
+              <button class="session-row-action" title="More">⋯</button>
+            </div>
+          </div>
+
+          <!-- Session Row 3 -->
+          <div class="session-row" data-session="widget-tests" onclick="openSession(this)">
+            <span class="session-row-indicator" style="background:rgba(255,255,255,0.12)"></span>
+            <div class="session-row-icon">✓</div>
+            <div class="session-row-content">
+              <div class="session-row-title">Widget tests</div>
+              <div class="session-row-desc">Unit and integration tests for the chart widgets. Mocking API responses and testing edge cases.</div>
+            </div>
+            <div class="session-row-meta">
+              <span class="message-count">♢ 18</span>
+              <span>3h ago</span>
+            </div>
+            <div class="session-row-actions">
+              <button class="session-row-action" title="Archive">📁</button>
+              <button class="session-row-action" title="More">⋯</button>
+            </div>
+          </div>
+
+          <!-- Session Row 4 -->
+          <div class="session-row" data-session="deploy-pipeline" onclick="openSession(this)">
+            <span class="session-row-indicator" style="background:rgba(255,255,255,0.12)"></span>
+            <div class="session-row-icon">↻</div>
+            <div class="session-row-content">
+              <div class="session-row-title">Deploy pipeline</div>
+              <div class="session-row-desc">Setting up GitHub Actions for automated deployment. Environment configuration and secrets management.</div>
+            </div>
+            <div class="session-row-meta">
+              <span class="message-count">♢ 12</span>
+              <span>1d ago</span>
+            </div>
+            <div class="session-row-actions">
+              <button class="session-row-action" title="Archive">📁</button>
+              <button class="session-row-action" title="More">⋯</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- ===== CHAT VIEW ===== -->
+      <div class="chat-view" id="chatView">
+        <div class="chat-view-header">
+          <button class="chat-view-back" onclick="closeSession()">←</button>
+          <div class="chat-view-info">
+            <div class="chat-view-title" id="chatViewTitle">Layout refactor</div>
+            <div class="chat-view-subtitle" id="chatViewSubtitle">Vertex Dashboard · 47 messages</div>
+          </div>
+          <div class="chat-view-actions">
+            <button class="chat-action-btn" title="Clear chat">✕</button>
+            <button class="chat-action-btn" title="Settings">⋯</button>
+          </div>
+        </div>
+
+        <div class="chat-messages">
+          <!-- Message 1 – Assistant -->
+          <div class="message assistant">
+            <div class="msg-author">ORION</div>
+            Good morning, Abhi. I've been looking at the Dashboard layout. The CSS Grid approach you started is clean — we should talk about how the chart widgets reflow on smaller viewports.
+            <div class="msg-time">9:32 AM</div>
+          </div>
+
+          <!-- Message 2 – User -->
+          <div class="message user">
+            <div class="msg-author">You</div>
+            Thanks — I'm thinking of using named grid areas so we can rearrange without touching the markup. Does that handle the widget drag-and-drop requirement from the spec?
+            <div class="msg-time">9:33 AM</div>
+          </div>
+
+          <!-- Message 3 – Assistant -->
+          <div class="message assistant">
+            <div class="msg-author">ORION</div>
+            Named grid areas are a solid foundation. For drag-and-drop, we could overlay a lightweight library on top. Quick analysis:
+            <br><br>
+            • <strong>CSS Grid areas</strong>: great for initial layout ✅<br>
+            • <strong>Drag-to-reorder</strong>: <span class="code-inline">react-dnd</span> or <span class="code-inline">@dnd-kit</span> would work well ✅<br>
+            • <strong>LocalStorage persistence</strong>: saves user preference ⚠️<br>
+            • <strong>Responsive fallback</strong>: single-column on mobile — straightforward ✅
+            <br><br>
+            Want me to sketch the grid template? I can generate the component structure.
+            <div class="msg-time">9:35 AM</div>
+          </div>
+
+          <!-- Message 4 – User -->
+          <div class="message user">
+            <div class="msg-author">You</div>
+            Yes please. Also — remind me what the analytics endpoint returns. I want to make sure the data shape matches the chart components before I wire it up.
+            <div class="msg-time">9:36 AM</div>
+          </div>
+
+          <!-- Message 5 – Assistant -->
+          <div class="message assistant">
+            <div class="msg-author">ORION</div>
+            On it. Here's what I have from our previous session on the API:
+            <br><br>
+            <strong>GET /api/v2/analytics/dashboard</strong><br>
+            Returns an object with three top-level keys:<br>
+            1. <span class="code-inline">revenue_summary</span> — daily totals, % change, forecast<br>
+            2. <span class="code-inline">user_metrics</span> — active users, retention, cohort data<br>
+            3. <span class="code-inline">performance</span> — response times, error rates, uptime
+            <br><br>
+            The chart components you built expect arrays, so we'll need a small adapter layer. I've prepared a draft in <span class="code-inline">/projects/vertex-dashboard/utils/api-adapter.ts</span>.
+            <div class="msg-time">9:38 AM</div>
+          </div>
+        </div>
+
+        <!-- Chat Input -->
+        <div class="chat-input-wrap">
+          <textarea class="chat-input" rows="1" placeholder="Message ORION…"></textarea>
+          <div class="chat-input-tools">
+            <button class="chat-tool-btn" title="Attach">⊞</button>
+            <button class="chat-tool-btn" title="Emoji">☺</button>
+            <button class="send-btn" title="Send">➤</button>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- /view-toggle -->
+  </main>
+
+  <!-- ====== RIGHT PANEL ====== -->
+  <aside class="right-panel">
+
+    <!-- System Info -->
+    <div class="mini-card">
+      <div class="mini-card-title">System Info</div>
+      <div class="usage-meter">
+        <div class="usage-row">
+          <span class="usage-label">Active Model</span>
+          <span class="usage-count">ORION Core</span>
+        </div>
+      </div>
+      <div class="usage-meter">
+        <div class="usage-row">
+          <span class="usage-label">Context Usage</span>
+          <span class="usage-count">34%</span>
+        </div>
+        <div class="usage-bar">
+          <div class="usage-bar-fill" style="width:34%"></div>
+        </div>
+      </div>
+      <div class="usage-meter">
+        <div class="usage-row">
+          <span class="usage-label">Memory Load</span>
+          <span class="usage-count">1.2 GB</span>
+        </div>
+        <div class="usage-bar">
+          <div class="usage-bar-fill warning" style="width:62%"></div>
+        </div>
+      </div>
+      <div class="usage-meter">
+        <div class="usage-row">
+          <span class="usage-label">Uptime</span>
+          <span class="usage-count">14h 23m</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Project Stats -->
+    <div class="mini-card">
+      <div class="mini-card-title">Vertex Dashboard</div>
+      <div class="project-stats-grid">
+        <div class="project-stat">
+          <div class="project-stat-value">4</div>
+          <div class="project-stat-label">Sessions</div>
+        </div>
+        <div class="project-stat">
+          <div class="project-stat-value">100</div>
+          <div class="project-stat-label">Messages</div>
+        </div>
+        <div class="project-stat">
+          <div class="project-stat-value">2</div>
+          <div class="project-stat-label">Active</div>
+        </div>
+        <div class="project-stat">
+          <div class="project-stat-value">87%</div>
+          <div class="project-stat-label">Progress</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Sessions -->
+    <div class="mini-card">
+      <div class="mini-card-title">Active Sessions</div>
+      <div class="recent-session-item">
+        <span class="recent-session-dot online"></span>
+        <div class="recent-session-info">
+          <div class="recent-session-name">Layout refactor</div>
+          <div class="recent-session-project">Vertex Dashboard</div>
+        </div>
+        <span class="recent-session-time">2m ago</span>
+      </div>
+      <div class="recent-session-item">
+        <span class="recent-session-dot online"></span>
+        <div class="recent-session-info">
+          <div class="recent-session-name">Auth refactor</div>
+          <div class="recent-session-project">API Gateway</div>
+        </div>
+        <span class="recent-session-time">5m ago</span>
+      </div>
+      <div class="recent-session-item">
+        <span class="recent-session-dot idle"></span>
+        <div class="recent-session-info">
+          <div class="recent-session-name">Data table</div>
+          <div class="recent-session-project">React Components</div>
+        </div>
+        <span class="recent-session-time">30m ago</span>
+      </div>
+    </div>
+
+    <!-- Capabilities -->
+    <div class="mini-card">
+      <div class="mini-card-title">Your ORION Capabilities</div>
+      <ul class="feature-list">
+        <li class="feature-item">
+          <span class="check">✓</span>
+          Code generation & review
+        </li>
+        <li class="feature-item">
+          <span class="check">✓</span>
+          Natural language chat
+        </li>
+        <li class="feature-item">
+          <span class="check">✓</span>
+          Session & project management
+        </li>
+        <li class="feature-item">
+          <span class="check">✓</span>
+          Memory & context retention
+        </li>
+        <li class="feature-item">
+          <span class="check">✓</span>
+          Local terminal access
+        </li>
+        <li class="feature-item">
+          <span class="check">✓</span>
+          128K token context window
+        </li>
+      </ul>
+    </div>
+  </aside>
+
+</div>
+
+<script>
+  // Simple interaction demo: session row click opens chat view
+  const viewToggle = document.getElementById('viewToggle');
+  const chatView = document.getElementById('chatView');
+  const chatViewTitle = document.getElementById('chatViewTitle');
+  const chatViewSubtitle = document.getElementById('chatViewSubtitle');
+
+  function openSession(row) {
+    const title = row.querySelector('.session-row-title').textContent;
+    const desc = row.querySelector('.session-row-desc').textContent;
+    const meta = row.querySelector('.session-row-meta').textContent.trim();
+    chatViewTitle.textContent = title;
+    chatViewSubtitle.textContent = 'Vertex Dashboard · ' + meta;
+    viewToggle.classList.add('show-chat');
+    // Mark active
+    document.querySelectorAll('.session-row').forEach(r => r.classList.remove('active'));
+    row.classList.add('active');
+    // Also highlight corresponding session pill in sidebar
+    const sessionId = row.dataset.session;
+    document.querySelectorAll('.session-pill').forEach(p => p.style.color = '');
+    if (sessionId) {
+      const pill = document.querySelector(`.session-pill[data-session="${sessionId}"]`);
+      if (pill) pill.style.color = 'rgba(255,255,255,0.8)';
+    }
+  }
+
+  function closeSession() {
+    viewToggle.classList.remove('show-chat');
+  }
+
+  // Project card click — switch active project
+  document.querySelectorAll('.project-card').forEach(card => {
+    card.addEventListener('click', function(e) {
+      // Don't switch if clicking a session pill inside
+      if (e.target.closest('.session-pill')) return;
+      document.querySelectorAll('.project-card').forEach(c => c.classList.remove('active'));
+      this.classList.add('active');
+      // Update project header
+      const name = this.querySelector('.project-card-name').textContent;
+      const count = this.querySelector('.project-card-count').textContent;
+      const headerTitle = document.querySelector('.project-header-info h1');
+      const headerMeta = document.querySelector('.project-header-meta');
+      headerTitle.textContent = name;
+      headerMeta.innerHTML = `<span>${count} sessions</span><span class="meta-dot"></span><span>Last active just now</span><span class="meta-dot"></span><span style="color:#2ed573;">● Active</span>`;
+      // Update right panel project stat title
+      const statTitle = document.querySelectorAll('.mini-card-title')[1];
+      if (statTitle) statTitle.textContent = name;
+      // If chat is open, close it
+      viewToggle.classList.remove('show-chat');
+    });
+  });
+
+  // Session pill click in sidebar — open that session
+  document.querySelectorAll('.session-pill').forEach(pill => {
+    pill.addEventListener('click', function(e) {
+      e.stopPropagation();
+      const sessionId = this.dataset.session;
+      const row = document.querySelector(`.session-row[data-session="${sessionId}"]`);
+      if (row) {
+        openSession(row);
+        // Scroll the row into view
+        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
+  });
+
+  // Tab switching
+  document.querySelectorAll('.session-tab').forEach(tab => {
+    tab.addEventListener('click', function() {
+      document.querySelectorAll('.session-tab').forEach(t => t.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+
+  // New Session buttons
+  document.querySelectorAll('.btn-new-session, .btn-sm-secondary').forEach(btn => {
+    btn.addEventListener('click', function() {
+      viewToggle.classList.remove('show-chat');
+      // Could show a new session modal — for demo we just scroll to top
+      document.querySelector('.session-grid')?.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  });
+
+  // Nav item click — simple active toggle for demo
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.addEventListener('click', function(e) {
+      e.preventDefault();
+      document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+      this.classList.add('active');
+    });
+  });
+
+  // Auto-resize textarea
+  document.querySelectorAll('.chat-input').forEach(textarea => {
+    textarea.addEventListener('input', function() {
+      this.style.height = 'auto';
+      this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+    });
+  });
+</script>
+
+</body>
+</html>

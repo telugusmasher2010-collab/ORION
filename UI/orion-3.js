@@ -66,15 +66,25 @@ function setupRightPanelToggle() {
 
     if (toggle && panel) {
         toggle.addEventListener('click', () => {
-            const isCollapsed = panel.classList.contains('collapsed');
-            if (isCollapsed) {
-                panel.classList.remove('collapsed');
-                if (divider) divider.classList.remove('hidden');
-            } else {
-                panel.classList.add('collapsed');
-                if (divider) divider.classList.add('hidden');
-            }
+            toggleRightPanel();
         });
+    }
+}
+
+// Global function for top-bar toggle button
+function toggleRightPanel() {
+    const panel = document.getElementById('sidebar-right');
+    const divider = document.getElementById('divider-right');
+
+    if (panel) {
+        const isCollapsed = panel.classList.contains('collapsed');
+        if (isCollapsed) {
+            panel.classList.remove('collapsed');
+            if (divider) divider.classList.remove('hidden');
+        } else {
+            panel.classList.add('collapsed');
+            if (divider) divider.classList.add('hidden');
+        }
     }
 }
 

@@ -1,0 +1,1168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ORION — Cursor-Style UI Mockup (Variant 4)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg-primary: #1b1d2b;
+    --bg-secondary: #222438;
+    --bg-tertiary: #1e2030;
+    --bg-hover: #2a2c42;
+    --bg-active: #2d2f45;
+    --border-color: #2a2b3d;
+    --border-subtle: #262838;
+    --text-primary: #e2e4f0;
+    --text-secondary: #9496b0;
+    --text-muted: #6b6d88;
+    --accent-blue: #3b82f6;
+    --accent-purple: #8b5cf6;
+    --accent-gradient: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    --accent-green: #22c55e;
+    --accent-yellow: #eab308;
+    --accent-orange: #f97316;
+    --accent-cyan: #06b6d4;
+    --accent-pink: #ec4899;
+    --code-font: 'JetBrains Mono', monospace;
+    --ui-font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    --radius: 6px;
+    --radius-sm: 4px;
+    --shadow: 0 2px 12px rgba(0,0,0,0.3);
+    --transition: all 0.2s ease;
+  }
+
+  html, body {
+    height: 100%;
+    width: 100%;
+    font-family: var(--ui-font);
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    overflow: hidden;
+    font-size: 13px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3a3b55; }
+
+  /* === LAYOUT === */
+  .app { display: flex; height: 100vh; width: 100vw; }
+
+  /* ─── Sidebar (file tree) ─── */
+  .sidebar {
+    width: 260px;
+    min-width: 260px;
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .sidebar-header h2 {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-secondary);
+  }
+  .sidebar-header .actions {
+    display: flex;
+    gap: 6px;
+  }
+  .sidebar-header .actions button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 15px;
+    padding: 2px 4px;
+    border-radius: var(--radius-sm);
+    transition: var(--transition);
+    line-height: 1;
+  }
+  .sidebar-header .actions button:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+
+  .file-tree {
+    flex: 1;
+    overflow-y: auto;
+    padding: 8px 0;
+  }
+
+  .tree-item {
+    display: flex;
+    align-items: center;
+    padding: 4px 16px;
+    cursor: pointer;
+    transition: var(--transition);
+    color: var(--text-secondary);
+    font-size: 13px;
+    gap: 8px;
+    user-select: none;
+    position: relative;
+  }
+  .tree-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .tree-item.active { background: var(--bg-active); color: var(--text-primary); }
+  .tree-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--accent-gradient);
+  }
+  .tree-item .icon { font-size: 14px; width: 18px; text-align: center; flex-shrink: 0; }
+  .tree-item .chevron { font-size: 10px; width: 14px; text-align: center; color: var(--text-muted); flex-shrink: 0; transition: transform 0.2s; }
+  .tree-item .chevron.open { transform: rotate(90deg); }
+  .tree-item .label { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tree-item .badge {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 10px;
+    background: var(--border-color);
+    color: var(--text-muted);
+    font-weight: 500;
+  }
+  .tree-item .modified {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent-orange);
+    flex-shrink: 0;
+  }
+  .tree-item.folder-open .icon { color: var(--accent-yellow); }
+  .tree-item.file-py .icon { color: var(--accent-blue); }
+  .tree-item.file-js .icon { color: var(--accent-yellow); }
+  .tree-item.file-json .icon { color: var(--accent-orange); }
+  .tree-item.file-md .icon { color: var(--text-secondary); }
+  .tree-item.file-config .icon { color: var(--text-muted); }
+
+  .tree-children { padding-left: 8px; }
+
+  /* ─── Center Panel ─── */
+  .center-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-primary);
+    min-width: 0;
+  }
+
+  /* ─── Dashboard (dev stats bar) ─── */
+  .dashboard-bar {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    padding: 0;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+    overflow-x: auto;
+  }
+  .stat-card {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 18px;
+    border-right: 1px solid var(--border-subtle);
+    min-width: 0;
+    flex-shrink: 0;
+  }
+  .stat-card:last-child { border-right: none; }
+  .stat-card .stat-icon {
+    width: 32px; height: 32px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+  .stat-card .stat-icon.blue { background: rgba(59,130,246,0.15); color: var(--accent-blue); }
+  .stat-card .stat-icon.purple { background: rgba(139,92,246,0.15); color: var(--accent-purple); }
+  .stat-card .stat-icon.green { background: rgba(34,197,94,0.15); color: var(--accent-green); }
+  .stat-card .stat-icon.cyan { background: rgba(6,182,212,0.15); color: var(--accent-cyan); }
+  .stat-card .stat-icon.orange { background: rgba(249,115,22,0.15); color: var(--accent-orange); }
+  .stat-card .stat-icon.pink { background: rgba(236,72,153,0.15); color: var(--accent-pink); }
+
+  .stat-card .stat-info { display: flex; flex-direction: column; }
+  .stat-card .stat-value {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1.2;
+  }
+  .stat-card .stat-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 500;
+  }
+  .stat-card .stat-change {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 1px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+  }
+  .stat-card .stat-change.up { background: rgba(34,197,94,0.15); color: var(--accent-green); }
+  .stat-card .stat-change.down { background: rgba(239,68,68,0.15); color: #ef4444; }
+
+  /* ─── Chat Area ─── */
+  .chat-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .chat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+  }
+  .chat-header .chat-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .chat-header .chat-title h1 {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .chat-header .chat-title .model-badge {
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(139,92,246,0.2));
+    color: var(--accent-blue);
+    font-weight: 600;
+    font-family: var(--code-font);
+  }
+  .chat-header .chat-actions { display: flex; gap: 6px; }
+  .chat-header .chat-actions button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    transition: var(--transition);
+  }
+  .chat-header .chat-actions button:hover {
+    color: var(--text-primary);
+    background: var(--bg-hover);
+  }
+
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* Message bubbles */
+  .message {
+    display: flex;
+    gap: 12px;
+    max-width: 85%;
+    animation: fadeIn 0.3s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .message.user { align-self: flex-end; flex-direction: row-reverse; }
+  .message.assistant { align-self: flex-start; }
+
+  .message .avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+    font-weight: 600;
+  }
+  .message.user .avatar {
+    background: var(--accent-gradient);
+    color: #fff;
+  }
+  .message.assistant .avatar {
+    background: var(--bg-hover);
+    color: var(--accent-cyan);
+    border: 1px solid var(--border-color);
+  }
+
+  .message .bubble {
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    font-size: 13px;
+    line-height: 1.6;
+    position: relative;
+  }
+  .message.user .bubble {
+    background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(139,92,246,0.15));
+    border: 1px solid rgba(59,130,246,0.2);
+    color: var(--text-primary);
+  }
+  .message.assistant .bubble {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+  }
+
+  .message .bubble .msg-time {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-top: 6px;
+    text-align: right;
+  }
+
+  /* Code block in chat */
+  .code-block {
+    margin: 8px 0;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    background: #14151f;
+  }
+  .code-block .code-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 12px;
+    background: var(--bg-tertiary);
+    border-bottom: 1px solid var(--border-color);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .code-block .code-header .lang { font-family: var(--code-font); font-weight: 500; }
+  .code-block .code-header .copy-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 3px;
+    transition: var(--transition);
+  }
+  .code-block .code-header .copy-btn:hover { color: var(--text-primary); background: var(--bg-hover); }
+  .code-block pre {
+    padding: 12px 14px;
+    font-family: var(--code-font);
+    font-size: 12px;
+    line-height: 1.7;
+    color: #d4d6e8;
+    overflow-x: auto;
+    white-space: pre;
+    tab-size: 2;
+  }
+
+  /* Syntax highlighting (simple) */
+  .code-block pre .kw { color: #c678dd; }
+  .code-block pre .fn { color: #61afef; }
+  .code-block pre .str { color: #98c379; }
+  .code-block pre .num { color: #d19a66; }
+  .code-block pre .cm { color: #5c6370; font-style: italic; }
+  .code-block pre .tp { color: #e5c07b; }
+  .code-block pre .op { color: #abb2bf; }
+  .code-block pre .var { color: #e06c75; }
+
+  /* Typing indicator */
+  .typing-indicator {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 0;
+    align-self: flex-start;
+  }
+  .typing-indicator .dots {
+    display: flex;
+    gap: 4px;
+    padding: 8px 14px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+  }
+  .typing-indicator .dots span {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    animation: typing 1.4s infinite ease-in-out;
+  }
+  .typing-indicator .dots span:nth-child(1) { animation-delay: 0s; }
+  .typing-indicator .dots span:nth-child(2) { animation-delay: 0.2s; }
+  .typing-indicator .dots span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes typing {
+    0%, 60%, 100% { opacity: 0.3; transform: scale(0.85); }
+    30% { opacity: 1; transform: scale(1); background: var(--accent-gradient); }
+  }
+
+  /* Chat input */
+  .chat-input-area {
+    padding: 12px 20px 16px;
+    border-top: 1px solid var(--border-subtle);
+    flex-shrink: 0;
+  }
+  .chat-input-wrapper {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 8px 12px;
+    transition: var(--transition);
+  }
+  .chat-input-wrapper:focus-within {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 1px rgba(59,130,246,0.3);
+  }
+  .chat-input-wrapper textarea {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    color: var(--text-primary);
+    font-family: var(--ui-font);
+    font-size: 13px;
+    resize: none;
+    min-height: 22px;
+    max-height: 120px;
+    line-height: 1.5;
+  }
+  .chat-input-wrapper textarea::placeholder { color: var(--text-muted); }
+  .chat-input-wrapper .input-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .chat-input-wrapper .input-actions button {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px 6px;
+    border-radius: var(--radius-sm);
+    font-size: 16px;
+    transition: var(--transition);
+    line-height: 1;
+  }
+  .chat-input-wrapper .input-actions button:hover { color: var(--text-primary); background: var(--bg-hover); }
+  .chat-input-wrapper .input-actions .send-btn {
+    background: var(--accent-gradient);
+    color: #fff;
+    padding: 5px 12px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .chat-input-wrapper .input-actions .send-btn:hover { opacity: 0.85; background: var(--accent-gradient); }
+
+  /* ─── Right Panel ─── */
+  .right-panel {
+    width: 280px;
+    min-width: 280px;
+    background: var(--bg-secondary);
+    border-left: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .panel-section {
+    border-bottom: 1px solid var(--border-subtle);
+  }
+  .panel-section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    cursor: pointer;
+    user-select: none;
+    transition: var(--transition);
+  }
+  .panel-section-header:hover { background: var(--bg-hover); }
+  .panel-section-header h3 {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .panel-section-header .collapse-icon {
+    color: var(--text-muted);
+    font-size: 10px;
+    transition: transform 0.2s;
+  }
+  .panel-section-body { padding: 6px 0; }
+
+  /* Agent status */
+  .agent-status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+  }
+  .agent-status .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .agent-status .status-dot.online { background: var(--accent-green); box-shadow: 0 0 6px rgba(34,197,94,0.5); }
+  .agent-status .status-dot.busy { background: var(--accent-yellow); box-shadow: 0 0 6px rgba(234,179,8,0.4); }
+  .agent-status .status-dot.offline { background: var(--text-muted); }
+  .agent-status .agent-info { flex: 1; }
+  .agent-status .agent-name { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+  .agent-status .agent-state { font-size: 11px; color: var(--text-muted); }
+  .agent-status .agent-metrics { font-size: 10px; font-family: var(--code-font); color: var(--text-muted); margin-top: 2px; }
+
+  /* Agent list */
+  .agent-list { padding: 4px 0; }
+  .agent-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 16px;
+    transition: var(--transition);
+    cursor: pointer;
+  }
+  .agent-item:hover { background: var(--bg-hover); }
+  .agent-item .agent-avatar {
+    width: 26px; height: 26px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    flex-shrink: 0;
+  }
+  .agent-item .agent-avatar.a1 { background: rgba(59,130,246,0.2); color: var(--accent-blue); }
+  .agent-item .agent-avatar.a2 { background: rgba(139,92,246,0.2); color: var(--accent-purple); }
+  .agent-item .agent-avatar.a3 { background: rgba(6,182,212,0.2); color: var(--accent-cyan); }
+  .agent-item .agent-detail { flex: 1; }
+  .agent-item .agent-detail .a-name { font-size: 13px; font-weight: 500; color: var(--text-primary); }
+  .agent-item .agent-detail .a-task { font-size: 11px; color: var(--text-muted); }
+  .agent-item .a-status-small { font-size: 10px; padding: 1px 6px; border-radius: 8px; font-weight: 500; }
+  .agent-item .a-status-small.running { background: rgba(34,197,94,0.15); color: var(--accent-green); }
+  .agent-item .a-status-small.waiting { background: rgba(234,179,8,0.15); color: var(--accent-yellow); }
+
+  /* Recent files */
+  .recent-file-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 16px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    transition: var(--transition);
+    cursor: pointer;
+  }
+  .recent-file-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .recent-file-item .rf-icon { font-size: 13px; width: 16px; text-align: center; flex-shrink: 0; }
+  .recent-file-item .rf-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .recent-file-item .rf-time { font-size: 10px; color: var(--text-muted); flex-shrink: 0; }
+
+  /* File explorer quick */
+  .file-explorer-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 16px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    transition: var(--transition);
+    cursor: pointer;
+  }
+  .file-explorer-item:hover { background: var(--bg-hover); color: var(--text-primary); }
+  .file-explorer-item .fe-icon { font-size: 13px; width: 16px; text-align: center; }
+  .file-explorer-item .fe-name { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-explorer-item .fe-dir { font-size: 10px; color: var(--text-muted); }
+
+  /* ─── Status Bar (VS Code style) ─── */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 26px;
+    padding: 0 12px;
+    background: #0d0e1a;
+    border-top: 1px solid var(--border-color);
+    font-size: 11px;
+    color: var(--text-secondary);
+    flex-shrink: 0;
+    font-family: var(--ui-font);
+  }
+  .status-bar .status-left,
+  .status-bar .status-right {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    height: 100%;
+  }
+  .status-bar .status-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0 10px;
+    height: 100%;
+    cursor: pointer;
+    transition: var(--transition);
+    white-space: nowrap;
+    border-right: 1px solid rgba(255,255,255,0.04);
+  }
+  .status-bar .status-item:last-child { border-right: none; }
+  .status-bar .status-item:hover { background: rgba(255,255,255,0.04); }
+  .status-bar .status-item .si-icon { font-size: 12px; }
+  .status-bar .status-item .si-text { font-size: 11px; }
+  .status-bar .status-item .si-highlight { color: var(--text-primary); font-weight: 500; }
+  .status-bar .status-right .status-item { border-right: none; border-left: 1px solid rgba(255,255,255,0.04); }
+  .status-bar .status-item .status-dot-sm {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+  .status-bar .status-item .status-dot-sm.green { background: var(--accent-green); }
+  .status-bar .status-item .status-dot-sm.blue { background: var(--accent-blue); }
+  .status-bar .status-item .status-dot-sm.purple { background: var(--accent-purple); }
+
+  /* Extra utilities */
+  .flex-spacer { flex: 1; }
+  .text-gradient { background: var(--accent-gradient); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+  /* Divider */
+  .divider { height: 1px; background: var(--border-subtle); margin: 4px 0; }
+
+  /* Badge stats inline */
+  .mini-badge {
+    font-size: 10px;
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-weight: 600;
+  }
+  .mini-badge.blue { background: rgba(59,130,246,0.15); color: var(--accent-blue); }
+  .mini-badge.purple { background: rgba(139,92,246,0.15); color: var(--accent-purple); }
+  .mini-badge.green { background: rgba(34,197,94,0.15); color: var(--accent-green); }
+  .mini-badge.orange { background: rgba(249,115,22,0.15); color: var(--accent-orange); }
+
+  /* Top bar gradient accent line */
+  .accent-line {
+    height: 2px;
+    background: var(--accent-gradient);
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ═══════════════ SIDEBAR (File Tree) ═══════════════ -->
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h2>📁 ORION · workspace</h2>
+      <div class="actions">
+        <button title="New file">+</button>
+        <button title="Collapse all">⊟</button>
+        <button title="More actions">⋯</button>
+      </div>
+    </div>
+    <div class="file-tree">
+      <!-- Folder: src -->
+      <div class="tree-item folder-open">
+        <span class="chevron open">▶</span>
+        <span class="icon">📂</span>
+        <span class="label">src</span>
+      </div>
+      <div class="tree-children">
+        <div class="tree-item file-py active">
+          <span class="chevron" style="visibility:hidden;">▶</span>
+          <span class="icon">🐍</span>
+          <span class="label">orion_agent.py</span>
+          <span class="modified"></span>
+        </div>
+        <div class="tree-item file-py">
+          <span class="chevron" style="visibility:hidden;">▶</span>
+          <span class="icon">🐍</span>
+          <span class="label">code_review.py</span>
+        </div>
+        <div class="tree-item file-py">
+          <span class="chevron" style="visibility:hidden;">▶</span>
+          <span class="icon">🐍</span>
+          <span class="label">context_manager.py</span>
+        </div>
+        <div class="tree-item file-js">
+          <span class="chevron" style="visibility:hidden;">▶</span>
+          <span class="icon">📄</span>
+          <span class="label">plugin_api.ts</span>
+        </div>
+        <div class="tree-item file-json">
+          <span class="chevron" style="visibility:hidden;">▶</span>
+          <span class="icon">📋</span>
+          <span class="label">config.json</span>
+        </div>
+      </div>
+
+      <!-- Folder: tests -->
+      <div class="tree-item">
+        <span class="chevron">▶</span>
+        <span class="icon">📁</span>
+        <span class="label">tests</span>
+      </div>
+
+      <!-- Folder: docs -->
+      <div class="tree-item folder-open">
+        <span class="chevron open">▶</span>
+        <span class="icon">📂</span>
+        <span class="label">docs</span>
+      </div>
+      <div class="tree-children">
+        <div class="tree-item file-md">
+          <span class="chevron" style="visibility:hidden;">▶</span>
+          <span class="icon">📝</span>
+          <span class="label">API_REFERENCE.md</span>
+        </div>
+        <div class="tree-item file-md">
+          <span class="chevron" style="visibility:hidden;">▶</span>
+          <span class="icon">📝</span>
+          <span class="label">DEPLOYMENT.md</span>
+        </div>
+      </div>
+
+      <!-- root files -->
+      <div class="divider"></div>
+      <div class="tree-item file-config">
+        <span class="chevron" style="visibility:hidden;">▶</span>
+        <span class="icon">⚙️</span>
+        <span class="label">.orion.yml</span>
+      </div>
+      <div class="tree-item file-json">
+        <span class="chevron" style="visibility:hidden;">▶</span>
+        <span class="icon">📋</span>
+        <span class="label">package.json</span>
+      </div>
+      <div class="tree-item file-md">
+        <span class="chevron" style="visibility:hidden;">▶</span>
+        <span class="icon">📝</span>
+        <span class="label">README.md</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ═══════════════ CENTER PANEL ═══════════════ -->
+  <main class="center-panel">
+
+    <!-- Accent gradient line -->
+    <div class="accent-line"></div>
+
+    <!-- Dashboard: dev stats -->
+    <div class="dashboard-bar">
+      <div class="stat-card">
+        <div class="stat-icon blue">⚡</div>
+        <div class="stat-info">
+          <div class="stat-value">842K</div>
+          <div class="stat-label">Tokens used <span class="stat-change up">+12%</span></div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon purple">🔄</div>
+        <div class="stat-info">
+          <div class="stat-value">147</div>
+          <div class="stat-label">Sessions <span class="stat-change up">+8</span></div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon green">⏱️</div>
+        <div class="stat-info">
+          <div class="stat-value">3d 14h</div>
+          <div class="stat-label">Uptime</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon cyan">🧠</div>
+        <div class="stat-info">
+          <div class="stat-value">ORION Core</div>
+          <div class="stat-label">Model active <span class="mini-badge green">online</span></div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon orange">📊</div>
+        <div class="stat-info">
+          <div class="stat-value">98.3%</div>
+          <div class="stat-label">Success rate <span class="stat-change up">+0.7%</span></div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon pink">🔌</div>
+        <div class="stat-info">
+          <div class="stat-value">6</div>
+          <div class="stat-label">Active plugins</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat area -->
+    <div class="chat-area">
+      <!-- Chat header -->
+      <div class="chat-header">
+        <div class="chat-title">
+          <h1>💬 Code review chat</h1>
+          <span class="model-badge">ORION Core</span>
+          <span class="mini-badge green" style="font-size:10px;">● context active</span>
+        </div>
+        <div class="chat-actions">
+          <button title="Clear chat">🗑️</button>
+          <button title="Export">📥</button>
+          <button title="Settings">⚙️</button>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div class="chat-messages">
+
+        <!-- Greeting message -->
+        <div class="message assistant">
+          <div class="avatar">✦</div>
+          <div class="bubble">
+            <strong style="color:var(--accent-cyan);">ORION</strong> <span style="color:var(--text-muted);font-size:11px;">· 08:15 AM</span>
+            <div style="margin-top:4px;">Good morning, <strong style="color:var(--accent-blue);">Abhi</strong>! 🌅 Ready to review some code? I noticed <code style="background:var(--bg-tertiary);padding:1px 4px;border-radius:3px;font-family:var(--code-font);font-size:12px;">orion_agent.py</code> has a few areas we could optimize — want me to walk through the changes from last night's PR?</div>
+            <div class="msg-time">2 min ago</div>
+          </div>
+        </div>
+
+        <!-- User message -->
+        <div class="message user">
+          <div class="avatar">A</div>
+          <div class="bubble">
+            Yeah, go ahead! Also can you check the tokenizer benchmark results and compare them against v3?
+            <div class="msg-time">1 min ago</div>
+          </div>
+        </div>
+
+        <!-- Assistant message with code block -->
+        <div class="message assistant">
+          <div class="avatar">✦</div>
+          <div class="bubble">
+            <strong style="color:var(--accent-cyan);">ORION</strong> <span style="color:var(--text-muted);font-size:11px;">· 08:16 AM</span>
+            <div style="margin-top:4px;">Sure! Here's the diff from last night's refactor of <strong>orion_agent.py</strong> — I extracted the pipeline logic into a composable chain. The main change was in the <code style="background:var(--bg-tertiary);padding:1px 4px;border-radius:3px;font-family:var(--code-font);font-size:12px;">process_message</code> method:</div>
+
+            <div class="code-block">
+              <div class="code-header">
+                <span class="lang">python</span>
+                <button class="copy-btn">📋 Copy</button>
+              </div>
+              <pre><span class="kw">class</span> <span class="tp">AgentPipeline</span>:
+    <span class="kw">def</span> <span class="fn">__init__</span>(<span class="var">self</span>):
+        <span class="var">self</span>.steps: <span class="tp">list</span>[<span class="tp">PipelineStep</span>] = []
+
+    <span class="kw">def</span> <span class="fn">add_step</span>(<span class="var">self</span>, <span class="var">step</span>: <span class="tp">PipelineStep</span>) -> <span class="tp">AgentPipeline</span>:
+        <span class="var">self</span>.steps.append(<span class="var">step</span>)
+        <span class="kw">return</span> <span class="var">self</span>  <span class="cm"># fluent API</span>
+
+    <span class="kw">async def</span> <span class="fn">execute</span>(<span class="var">self</span>, <span class="var">ctx</span>: <span class="tp">Context</span>) -> <span class="tp">Result</span>:
+        <span class="kw">for</span> <span class="var">step</span> <span class="kw">in</span> <span class="var">self</span>.steps:
+            <span class="var">ctx</span> = <span class="kw">await</span> <span class="var">step</span>.<span class="fn">run</span>(<span class="var">ctx</span>)
+        <span class="kw">return</span> <span class="var">ctx</span>.result</pre>
+            </div>
+
+            <div style="margin-top:6px;">Token count went from <strong style="color:var(--accent-orange);">2,340</strong> → <strong style="color:var(--accent-green);">1,892</strong> per invocation — a <strong style="color:var(--accent-green);">19% reduction</strong> 🎉</div>
+            <div class="msg-time">Just now</div>
+          </div>
+        </div>
+
+        <!-- User asks about benchmarks -->
+        <div class="message user">
+          <div class="avatar">A</div>
+          <div class="bubble">
+            Nice! What do the benchmark comparisons look like? I need the numbers for the standup in 10 min.
+            <div class="msg-time">Just now</div>
+          </div>
+        </div>
+
+        <!-- Assistant with data table -->
+        <div class="message assistant">
+          <div class="avatar">✦</div>
+          <div class="bubble">
+            <strong style="color:var(--accent-cyan);">ORION</strong> <span style="color:var(--text-muted);font-size:11px;">· 08:17 AM</span>
+            <div style="margin-top:4px;">Pulled the benchmark results. Here's the comparison between <strong>v1.0</strong> and <strong>v2.0</strong>:</div>
+
+            <div style="margin:8px 0; background: var(--bg-tertiary); border-radius: var(--radius-sm); padding: 8px 12px; font-family: var(--code-font); font-size: 11px; border: 1px solid var(--border-color);">
+              <div style="display:grid; grid-template-columns: 30px 1fr 1fr 1fr; gap: 4px 12px;">
+                <span style="color:var(--text-muted);">#</span>
+                <span style="color:var(--text-muted);">benchmark</span>
+                <span style="color:var(--accent-blue);">v3</span>
+                <span style="color:var(--accent-purple);">v4</span>
+                <span>1</span>
+                <span>code_gen</span>
+                <span>82.4%</span>
+                <span style="color:var(--accent-green);font-weight:600;">91.7%</span>
+                <span>2</span>
+                <span>reasoning</span>
+                <span>76.1%</span>
+                <span style="color:var(--accent-green);font-weight:600;">88.3%</span>
+                <span>3</span>
+                <span>tool_calling</span>
+                <span>89.5%</span>
+                <span style="color:var(--accent-green);font-weight:600;">94.2%</span>
+                <span>4</span>
+                <span>context_recall</span>
+                <span>71.2%</span>
+                <span style="color:var(--accent-green);font-weight:600;">86.9%</span>
+                <span>5</span>
+                <span>latency (avg)</span>
+                <span>1.42s</span>
+                <span style="color:var(--accent-green);font-weight:600;">0.89s</span>
+              </div>
+            </div>
+
+            <div>Overall improvement: <strong style="color:var(--accent-green);">+12.3%</strong> weighted average. Ready for standup! 🚀</div>
+            <div class="msg-time">Just now</div>
+          </div>
+        </div>
+
+        <!-- Typing indicator -->
+        <div class="typing-indicator">
+          <div class="avatar" style="width:32px;height:32px;border-radius:var(--radius-sm);background:var(--bg-hover);border:1px solid var(--border-color);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--accent-cyan);">✦</div>
+          <div class="dots">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Chat input -->
+      <div class="chat-input-area">
+        <div class="chat-input-wrapper">
+          <textarea rows="1" placeholder="Ask ORION anything... (Ctrl+Enter to send)"></textarea>
+          <div class="input-actions">
+            <button title="Attach file">📎</button>
+            <button title="Code">{} </button>
+            <button title="Use context">🔍</button>
+            <button class="send-btn">↵ Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ═══════════════ RIGHT PANEL ═══════════════ -->
+  <aside class="right-panel">
+
+    <!-- Agent status -->
+    <div class="panel-section">
+      <div class="panel-section-header">
+        <h3><span>🤖</span> Agent Status</h3>
+        <span class="collapse-icon">▾</span>
+      </div>
+      <div class="panel-section-body">
+        <div class="agent-status">
+          <div class="status-dot online"></div>
+          <div class="agent-info">
+            <div class="agent-name">ORION · Primary</div>
+            <div class="agent-state">Active · Processing code review</div>
+            <div class="agent-metrics">ctx: 12.4K / 32K · temp: 0.7</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sub-agents -->
+    <div class="panel-section">
+      <div class="panel-section-header">
+        <h3><span>👥</span> Sub-Agents</h3>
+        <span class="collapse-icon">▾</span>
+      </div>
+      <div class="panel-section-body">
+        <div class="agent-list">
+          <div class="agent-item">
+            <div class="agent-avatar a1">CR</div>
+            <div class="agent-detail">
+              <div class="a-name">Code Reviewer</div>
+              <div class="a-task">Reviewing PR #142</div>
+            </div>
+            <span class="a-status-small running">● running</span>
+          </div>
+          <div class="agent-item">
+            <div class="agent-avatar a2">BS</div>
+            <div class="agent-detail">
+              <div class="a-name">Benchmark Runner</div>
+              <div class="a-task">Suite completed · 4/4 passed</div>
+            </div>
+            <span class="a-status-small running">● done</span>
+          </div>
+          <div class="agent-item">
+            <div class="agent-avatar a3">FM</div>
+            <div class="agent-detail">
+              <div class="a-name">File Manager</div>
+              <div class="a-task">Awaiting instruction</div>
+            </div>
+            <span class="a-status-small waiting">○ idle</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- File explorer -->
+    <div class="panel-section">
+      <div class="panel-section-header">
+        <h3><span>📂</span> File Explorer</h3>
+        <span class="collapse-icon">▾</span>
+      </div>
+      <div class="panel-section-body">
+        <div class="file-explorer-item">
+          <span class="fe-icon">📄</span>
+          <span class="fe-name">orion_agent.py</span>
+          <span class="fe-dir">src/</span>
+        </div>
+        <div class="file-explorer-item">
+          <span class="fe-icon">📄</span>
+          <span class="fe-name">code_review.py</span>
+          <span class="fe-dir">src/</span>
+        </div>
+        <div class="file-explorer-item">
+          <span class="fe-icon">📄</span>
+          <span class="fe-name">context_manager.py</span>
+          <span class="fe-dir">src/</span>
+        </div>
+        <div class="file-explorer-item">
+          <span class="fe-icon">📄</span>
+          <span class="fe-name">plugin_api.ts</span>
+          <span class="fe-dir">src/</span>
+        </div>
+        <div class="file-explorer-item">
+          <span class="fe-icon">⚙️</span>
+          <span class="fe-name">config.json</span>
+          <span class="fe-dir">.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent files -->
+    <div class="panel-section">
+      <div class="panel-section-header">
+        <h3><span>📌</span> Recent Files</h3>
+        <span class="collapse-icon">▾</span>
+      </div>
+      <div class="panel-section-body">
+        <div class="recent-file-item">
+          <span class="rf-icon">🐍</span>
+          <span class="rf-name">orion_agent.py</span>
+          <span class="rf-time">2m ago</span>
+        </div>
+        <div class="recent-file-item">
+          <span class="rf-icon">📋</span>
+          <span class="rf-name">benchmarks_v4.json</span>
+          <span class="rf-time">15m ago</span>
+        </div>
+        <div class="recent-file-item">
+          <span class="rf-icon">📝</span>
+          <span class="rf-name">API_REFERENCE.md</span>
+          <span class="rf-time">1h ago</span>
+        </div>
+        <div class="recent-file-item">
+          <span class="rf-icon">🐍</span>
+          <span class="rf-name">test_agent_pipeline.py</span>
+          <span class="rf-time">2h ago</span>
+        </div>
+        <div class="recent-file-item">
+          <span class="rf-icon">📄</span>
+          <span class="rf-name">plugin_api.ts</span>
+          <span class="rf-time">3h ago</span>
+        </div>
+        <div class="recent-file-item">
+          <span class="rf-icon">⚙️</span>
+          <span class="rf-name">.orion.yml</span>
+          <span class="rf-time">Yesterday</span>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+</div>
+
+<!-- ═══════════════ STATUS BAR (VS Code style) ═══════════════ -->
+<footer class="status-bar">
+  <div class="status-left">
+    <div class="status-item">
+      <span class="si-icon">✦</span>
+      <span class="si-text">ORION <span class="si-highlight">v4.2.0</span></span>
+    </div>
+    <div class="status-item">
+      <span class="status-dot-sm green"></span>
+      <span class="si-text">ORION Core</span>
+    </div>
+    <div class="status-item">
+      <span class="si-icon">⚡</span>
+      <span class="si-text">tokens: <span class="si-highlight">842.1K</span></span>
+    </div>
+    <div class="status-item">
+      <span class="si-icon">⏱️</span>
+      <span class="si-text">latency: <span class="si-highlight">124ms</span> avg</span>
+    </div>
+  </div>
+  <div class="status-right">
+    <div class="status-item">
+      <span class="status-dot-sm blue"></span>
+      <span class="si-text">ctx: <span class="si-highlight">12.4K</span> / 32K</span>
+    </div>
+    <div class="status-item">
+      <span class="si-icon">📊</span>
+      <span class="si-text">success: <span class="si-highlight">98.3%</span></span>
+    </div>
+    <div class="status-item">
+      <span class="si-icon">🔌</span>
+      <span class="si-text">6 plugins</span>
+    </div>
+    <div class="status-item">
+      <span class="si-icon">📁</span>
+      <span class="si-text">ORION workspace</span>
+    </div>
+    <div class="status-item">
+      <span class="si-icon">Ln <span class="si-highlight">142</span>, Col <span class="si-highlight">32</span></span>
+    </div>
+    <div class="status-item">
+      <span class="si-icon">UTF-8</span>
+    </div>
+    <div class="status-item">
+      <span class="si-icon">🐍</span>
+      <span class="si-text">Python 3.12</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

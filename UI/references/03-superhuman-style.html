@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ORION — Superhuman Style</title>
+  <style>
+    /* ===== RESET & BASE ===== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-deep: #1a1a2e;
+      --bg-card: rgba(255,255,255,0.04);
+      --bg-card-hover: rgba(255,255,255,0.07);
+      --glass-border: rgba(255,255,255,0.06);
+      --glass-shadow: 0 8px 32px rgba(0,0,0,0.45);
+      --accent: #6366f1;
+      --accent-glow: #8b5cf6;
+      --accent-muted: rgba(99,102,241,0.25);
+      --text-primary: #f1f5f9;
+      --text-secondary: rgba(241,245,249,0.55);
+      --text-muted: rgba(241,245,249,0.30);
+      --radius: 14px;
+      --radius-sm: 10px;
+      --transition: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    html, body {
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      overflow: hidden;
+    }
+
+    /* ===== LAYOUT ===== */
+    .app {
+      display: grid;
+      grid-template-columns: 280px 1fr 340px;
+      height: 100vh;
+      background: var(--bg-deep);
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* subtle ambient glow behind the canvas */
+    .app::before {
+      content: '';
+      position: fixed;
+      top: -40%;
+      left: 50%;
+      width: 900px;
+      height: 900px;
+      background: radial-gradient(circle at center, rgba(99,102,241,0.07) 0%, transparent 70%);
+      pointer-events: none;
+      transform: translateX(-50%);
+      z-index: 0;
+    }
+
+    /* ===== SIDEBAR (left) ===== */
+    .sidebar {
+      background: rgba(26,26,46,0.85);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-right: 1px solid var(--glass-border);
+      padding: 28px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+      z-index: 1;
+      position: relative;
+      overflow-y: auto;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-glow));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 18px;
+      color: #fff;
+      box-shadow: 0 0 20px rgba(99,102,241,0.35);
+    }
+
+    .brand-text {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      background: linear-gradient(135deg, #f1f5f9 60%, rgba(99,102,241,0.7));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .brand-badge {
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      padding: 2px 8px;
+      border-radius: 20px;
+      background: var(--accent-muted);
+      color: var(--accent);
+      border: 1px solid rgba(99,102,241,0.2);
+      margin-left: auto;
+      -webkit-text-fill-color: var(--accent);
+    }
+
+    .nav-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+      margin-bottom: 10px;
+    }
+
+    .nav-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: var(--transition);
+      position: relative;
+    }
+
+    .nav-item:hover {
+      background: var(--bg-card-hover);
+      color: var(--text-primary);
+    }
+
+    .nav-item.active {
+      background: var(--accent-muted);
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    .nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: -20px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 20px;
+      border-radius: 0 3px 3px 0;
+      background: var(--accent);
+      box-shadow: 0 0 10px rgba(99,102,241,0.5);
+    }
+
+    .nav-icon {
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.6;
+    }
+
+    .nav-item.active .nav-icon { opacity: 1; }
+
+    .nav-count {
+      margin-left: auto;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.06);
+      color: var(--text-muted);
+    }
+
+    /* ===== MAIN (center) ===== */
+    .main {
+      padding: 32px 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+      z-index: 1;
+      position: relative;
+      overflow-y: auto;
+    }
+
+    /* top bar */
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .greeting {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .greeting h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+    }
+
+    .greeting h1 span {
+      background: linear-gradient(135deg, var(--accent), var(--accent-glow));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .greeting p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      font-weight: 400;
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-glow));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: #fff;
+      box-shadow: 0 0 0 2px rgba(99,102,241,0.2);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .avatar:hover {
+      box-shadow: 0 0 0 2px rgba(99,102,241,0.4), 0 0 20px rgba(99,102,241,0.2);
+    }
+
+    .icon-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-card);
+      border: 1px solid var(--glass-border);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: var(--transition);
+      font-size: 16px;
+    }
+
+    .icon-btn:hover {
+      background: var(--bg-card-hover);
+      color: var(--text-primary);
+      border-color: rgba(99,102,241,0.3);
+    }
+
+    /* quick-input card */
+    .quick-input {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      padding: 18px 22px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: var(--glass-shadow);
+      transition: var(--transition);
+      flex-shrink: 0;
+    }
+
+    .quick-input:focus-within {
+      border-color: rgba(99,102,241,0.4);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.45), 0 0 0 1px rgba(99,102,241,0.15);
+    }
+
+    .quick-input-icon {
+      font-size: 18px;
+      opacity: 0.4;
+    }
+
+    .quick-input input {
+      flex: 1;
+      background: none;
+      border: none;
+      outline: none;
+      color: var(--text-primary);
+      font-size: 15px;
+      font-weight: 400;
+    }
+
+    .quick-input input::placeholder {
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    .quick-input-kbd {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .quick-input-kbd kbd {
+      padding: 3px 7px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--glass-border);
+      font-family: inherit;
+      font-size: 10px;
+      font-weight: 600;
+    }
+
+    /* session cards grid */
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .section-header h2 {
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: -0.2px;
+    }
+
+    .section-header a {
+      font-size: 13px;
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 500;
+      transition: var(--transition);
+    }
+
+    .section-header a:hover {
+      color: var(--accent-glow);
+      text-decoration: underline;
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      flex-shrink: 0;
+    }
+
+    .session-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+      box-shadow: var(--glass-shadow);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .session-card:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(99,102,241,0.2);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 0 0 1px rgba(99,102,241,0.08);
+    }
+
+    .session-card .card-top {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .session-card .card-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+      box-shadow: 0 0 8px rgba(99,102,241,0.4);
+      flex-shrink: 0;
+    }
+
+    .session-card .card-dot.green {
+      background: #34d399;
+      box-shadow: 0 0 8px rgba(52,211,153,0.3);
+    }
+
+    .session-card .card-title {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .session-card .card-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    .session-card .card-meta {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .session-card .card-meta span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* ===== DETAILS PANEL (right) ===== */
+    .details {
+      background: rgba(26,26,46,0.85);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-left: 1px solid var(--glass-border);
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      z-index: 1;
+      position: relative;
+      overflow-y: auto;
+    }
+
+    .details-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .details-header h3 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .badge-premium {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.15));
+      color: var(--accent);
+      border: 1px solid rgba(99,102,241,0.2);
+    }
+
+    .profile-card {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      padding: 22px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      box-shadow: var(--glass-shadow);
+      flex-shrink: 0;
+    }
+
+    .profile-avatar {
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent-glow));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 24px;
+      color: #fff;
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.2), 0 0 30px rgba(99,102,241,0.15);
+    }
+
+    .profile-card .name {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .profile-card .role {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .profile-card .plan-tag {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 4px 14px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-glow));
+      color: #fff;
+      box-shadow: 0 0 16px rgba(99,102,241,0.3);
+    }
+
+    .shortcuts-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .shortcuts-section .section-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      color: var(--text-muted);
+    }
+
+    .shortcut-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      background: var(--bg-card);
+      border: 1px solid var(--glass-border);
+      transition: var(--transition);
+    }
+
+    .shortcut-row:hover {
+      background: var(--bg-card-hover);
+      border-color: rgba(99,102,241,0.15);
+    }
+
+    .shortcut-row .label {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .shortcut-row .keys {
+      display: flex;
+      gap: 4px;
+    }
+
+    .shortcut-row .keys kbd {
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid var(--glass-border);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .session-info {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      box-shadow: var(--glass-shadow);
+      flex-shrink: 0;
+    }
+
+    .session-info .info-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 0;
+      font-size: 13px;
+    }
+
+    .session-info .info-row .val {
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .session-info .info-row .lbl {
+      color: var(--text-muted);
+    }
+
+    /* ===== STATUS BAR (bottom of sidebar) ===== */
+    .sidebar-footer {
+      margin-top: auto;
+      padding-top: 14px;
+      border-top: 1px solid var(--glass-border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #34d399;
+      box-shadow: 0 0 6px rgba(52,211,153,0.4);
+    }
+
+    /* ===== SCROLLBAR ===== */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.15); }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 1100px) {
+      .app { grid-template-columns: 240px 1fr 280px; }
+      .main { padding: 24px 20px; }
+      .details { padding: 24px 18px; }
+    }
+
+    @media (max-width: 820px) {
+      .details { display: none; }
+      .app { grid-template-columns: 220px 1fr; }
+    }
+
+    @media (max-width: 640px) {
+      .sidebar { display: none; }
+      .app { grid-template-columns: 1fr; }
+      .main { padding: 20px 16px; }
+      .card-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <!-- ===== SIDEBAR ===== -->
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">◆</div>
+        <span class="brand-text">ORION</span>
+        <span class="brand-badge">PREMIUM</span>
+      </div>
+
+      <div>
+        <div class="nav-label">Navigation</div>
+        <ul class="nav-list">
+          <li class="nav-item active">
+            <span class="nav-icon">⊞</span>
+            Dashboard
+            <span class="nav-count">4</span>
+          </li>
+          <li class="nav-item">
+            <span class="nav-icon">◇</span>
+            Sessions
+            <span class="nav-count">12</span>
+          </li>
+          <li class="nav-item">
+            <span class="nav-icon">⚙</span>
+            Settings
+          </li>
+          <li class="nav-item">
+            <span class="nav-icon">◎</span>
+            Integrations
+          </li>
+        </ul>
+      </div>
+
+      <div>
+        <div class="nav-label">Quick Links</div>
+        <ul class="nav-list">
+          <li class="nav-item"><span class="nav-icon">⌘</span> Commands</li>
+          <li class="nav-item"><span class="nav-icon">⏎</span> Recent</li>
+          <li class="nav-item"><span class="nav-icon">★</span> Favorites</li>
+        </ul>
+      </div>
+
+      <div class="sidebar-footer">
+        <span class="status-dot"></span>
+        All systems nominal
+        <span style="margin-left:auto;">v2.4.0</span>
+      </div>
+    </aside>
+
+    <!-- ===== MAIN CONTENT ===== -->
+    <main class="main">
+
+      <!-- Top Bar -->
+      <div class="topbar">
+        <div class="greeting">
+          <h1>Good evening, <span>Alex</span></h1>
+          <p>Your AI assistant is ready — 3 active sessions</p>
+        </div>
+        <div class="top-actions">
+          <div class="icon-btn" title="Notifications">🔔</div>
+          <div class="avatar">A</div>
+        </div>
+      </div>
+
+      <!-- Quick Input -->
+      <div class="quick-input">
+        <span class="quick-input-icon">⚡</span>
+        <input type="text" placeholder="Ask ORION anything…" />
+        <div class="quick-input-kbd">
+          <kbd>⌘</kbd> <kbd>K</kbd>
+        </div>
+      </div>
+
+      <!-- Active Sessions -->
+      <div class="section-header">
+        <h2>Active Sessions</h2>
+        <a href="#">View all →</a>
+      </div>
+
+      <div class="card-grid">
+        <div class="session-card">
+          <div class="card-top">
+            <span class="card-dot"></span>
+            <span class="card-title">Code Review</span>
+          </div>
+          <div class="card-desc">Reviewing the authentication module refactor — 3 files pending.</div>
+          <div class="card-meta">
+            <span>📄 4 messages</span>
+            <span>⏱ 12m ago</span>
+          </div>
+        </div>
+
+        <div class="session-card">
+          <div class="card-top">
+            <span class="card-dot green"></span>
+            <span class="card-title">Data Pipeline</span>
+          </div>
+          <div class="card-desc">Building an ETL pipeline for real-time analytics dashboards.</div>
+          <div class="card-meta">
+            <span>📄 8 messages</span>
+            <span>⏱ 2m ago</span>
+          </div>
+        </div>
+
+        <div class="session-card">
+          <div class="card-top">
+            <span class="card-dot"></span>
+            <span class="card-title">Meeting Notes</span>
+          </div>
+          <div class="card-desc">Summarised the Q2 planning session — action items extracted.</div>
+          <div class="card-meta">
+            <span>📄 6 messages</span>
+            <span>⏱ 45m ago</span>
+          </div>
+        </div>
+
+        <div class="session-card">
+          <div class="card-top">
+            <span class="card-dot"></span>
+            <span class="card-title">Research</span>
+          </div>
+          <div class="card-desc">Gathering latest papers on multi-agent LLM coordination.</div>
+          <div class="card-meta">
+            <span>📄 11 messages</span>
+            <span>⏱ 1h ago</span>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- ===== DETAILS PANEL ===== -->
+    <aside class="details">
+      <div class="details-header">
+        <h3>Details</h3>
+        <span class="badge-premium">✦ Premium</span>
+      </div>
+
+      <!-- Profile -->
+      <div class="profile-card">
+        <div class="profile-avatar">A</div>
+        <div class="name">Alex Turner</div>
+        <div class="role">ORION Premium · 7-day trial</div>
+        <span class="plan-tag">✦ ORION Pro</span>
+      </div>
+
+      <!-- Keyboard Shortcuts -->
+      <div class="shortcuts-section">
+        <div class="section-label">Keyboard Shortcuts</div>
+
+        <div class="shortcut-row">
+          <span class="label">Quick search</span>
+          <span class="keys"><kbd>⌘</kbd><kbd>K</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="label">New session</span>
+          <span class="keys"><kbd>⌘</kbd><kbd>N</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="label">Cycle sessions</span>
+          <span class="keys"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>J</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="label">Toggle sidebar</span>
+          <span class="keys"><kbd>⌘</kbd><kbd>B</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="label">Focus input</span>
+          <span class="keys"><kbd>⌘</kbd><kbd>I</kbd></span>
+        </div>
+        <div class="shortcut-row">
+          <span class="label">Command palette</span>
+          <span class="keys"><kbd>⌘</kbd><kbd>⇧</kbd><kbd>P</kbd></span>
+        </div>
+      </div>
+
+      <!-- Session Info -->
+      <div class="session-info">
+        <div style="font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-muted);margin-bottom:8px;">Session Info</div>
+        <div class="info-row">
+          <span class="lbl">Active sessions</span>
+          <span class="val">4</span>
+        </div>
+        <div class="info-row">
+          <span class="lbl">Total messages</span>
+          <span class="val">247</span>
+        </div>
+        <div class="info-row">
+          <span class="lbl">Tokens used</span>
+          <span class="val">18.2K</span>
+        </div>
+        <div class="info-row">
+          <span class="lbl">Uptime</span>
+          <span class="val">3h 42m</span>
+        </div>
+        <div class="info-row">
+          <span class="lbl">Model</span>
+          <span class="val">ORION-4</span>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+</body>
+</html>

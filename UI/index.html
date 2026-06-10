@@ -4,14 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ORION</title>
+    <link rel="stylesheet" href="styles/orion-theme.css">
+    <link rel="stylesheet" href="styles/animations.css">
+    <link rel="stylesheet" href="styles/status-indicator.css">
     <link rel="stylesheet" href="styles/orion-3.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- Title Bar -->
+
+    <!-- ── TITLE BAR ── -->
     <div id="titlebar">
         <div id="titlebar-drag">
-            <span class="logo-icon">◈</span>
+            <span class="brand-icon-small">◆</span>
             <span class="titlebar-logo">ORION</span>
             <span id="orion-status" class="status-indicator status-online">
                 <span class="status-dot"></span>
@@ -25,60 +29,76 @@
         </div>
     </div>
 
-    <!-- Main Layout -->
+    <!-- ── MAIN LAYOUT ── -->
     <div id="app" class="app-layout">
 
-        <!-- LEFT SIDEBAR (Icon-first, expandable) -->
+        <!-- ============================================================
+             LEFT SIDEBAR (Vercel-style: brand + nav sections + footer)
+             ============================================================ -->
         <aside id="sidebar-left" class="sidebar-left collapsed">
+            <!-- Brand (matches Vercel ref exactly) -->
+            <div class="sidebar-brand">
+                <div class="brand-icon">◆</div>
+                <span class="brand-text">ORION</span>
+            </div>
+
+            <!-- Navigation -->
             <nav class="sidebar-nav">
+                <!-- Main section -->
+                <div class="nav-section-label">Main</div>
                 <button class="nav-item active" data-view="dashboard" data-tooltip="Dashboard">
-                    <span class="nav-icon">🏠</span>
+                    <span class="nav-icon">⌂</span>
                     <span class="nav-text">Dashboard</span>
                 </button>
                 <button class="nav-item" data-view="projects" data-tooltip="Projects">
-                    <span class="nav-icon">📂</span>
+                    <span class="nav-icon">⊞</span>
                     <span class="nav-text">Projects</span>
                 </button>
                 <button class="nav-item" data-view="tasks" data-tooltip="Tasks">
-                    <span class="nav-icon">📋</span>
+                    <span class="nav-icon">☰</span>
                     <span class="nav-text">Tasks</span>
                 </button>
+
+                <!-- Views section -->
+                <div class="nav-section-label">Views</div>
                 <button class="nav-item" data-view="clients" data-tooltip="Clients">
-                    <span class="nav-icon">👥</span>
+                    <span class="nav-icon">⊛</span>
                     <span class="nav-text">Clients</span>
                 </button>
                 <button class="nav-item" data-view="leads" data-tooltip="Leads">
-                    <span class="nav-icon">🎯</span>
+                    <span class="nav-icon">⊗</span>
                     <span class="nav-text">Leads</span>
                 </button>
                 <button class="nav-item" data-view="systems" data-tooltip="Systems">
-                    <span class="nav-icon">⚡</span>
+                    <span class="nav-icon">⊹</span>
                     <span class="nav-text">Systems</span>
                 </button>
                 <button class="nav-item" data-view="calendar" data-tooltip="Calendar">
-                    <span class="nav-icon">📅</span>
+                    <span class="nav-icon">☐</span>
                     <span class="nav-text">Calendar</span>
                 </button>
+
+                <!-- Tools section -->
+                <div class="nav-section-label">Tools</div>
                 <button class="nav-item" data-view="analytics" data-tooltip="Analytics">
-                    <span class="nav-icon">📊</span>
+                    <span class="nav-icon">⊟</span>
                     <span class="nav-text">Analytics</span>
                 </button>
                 <button class="nav-item" data-view="logs" data-tooltip="Logs">
-                    <span class="nav-icon">📜</span>
+                    <span class="nav-icon">≡</span>
                     <span class="nav-text">Logs</span>
                 </button>
                 <button class="nav-item" data-view="settings" data-tooltip="Settings">
-                    <span class="nav-icon">⚙️</span>
+                    <span class="nav-icon">⊙</span>
                     <span class="nav-text">Settings</span>
                 </button>
             </nav>
 
+            <!-- Footer (Vercel: status dot + label + version + toggle) -->
             <div class="sidebar-footer">
-                <div class="user-avatar" title="Abhi">A</div>
-                <span class="nav-text user-name">Abhi</span>
-            </div>
-
-            <div class="sidebar-bottom">
+                <span class="status-dot"></span>
+                <span class="footer-status-text">All systems nominal</span>
+                <span class="footer-version">v3.0</span>
                 <button class="sidebar-toggle" id="sidebar-toggle" title="Toggle sidebar">
                     <span class="toggle-icon">◀</span>
                 </button>
@@ -88,60 +108,111 @@
         <!-- LEFT DIVIDER -->
         <div class="divider divider-left" id="divider-left"></div>
 
-        <!-- CENTER PANEL -->
+        <!-- ============================================================
+             CENTER PANEL (Vercel-style)
+             ============================================================ -->
         <main id="center-panel" class="center-panel">
 
-            <!-- View Container -->
             <div class="view-container">
 
-                <!-- DASHBOARD VIEW (Plain start — project list) -->
+                <!-- ── DASHBOARD VIEW (Vercel-style center panel) ── -->
                 <div id="view-dashboard" class="view active">
-                    <div class="dashboard-plain">
-                        <div class="dashboard-hero">
-                            <div class="hero-icon">◈</div>
-                            <h1>ORION</h1>
-                            <p class="hero-sub">Your personal AI command center</p>
-                        </div>
-                        <div class="dashboard-quick">
-                            <button class="quick-card" onclick="showCreateProject()">
-                                <span class="qc-icon">📁</span>
-                                <span class="qc-title">New Project</span>
-                                <span class="qc-desc">Create a new project</span>
-                            </button>
-                            <button class="quick-card" onclick="switchView('projects')">
-                                <span class="qc-icon">📂</span>
-                                <span class="qc-title">Open Project</span>
-                                <span class="qc-desc">Browse your projects and chats</span>
-                            </button>
-                            <button class="quick-card" onclick="createNewChat()">
-                                <span class="qc-icon">💬</span>
-                                <span class="qc-title">New Chat</span>
-                                <span class="qc-desc">Start a fresh conversation</span>
-                            </button>
-                        </div>
-                        <div class="dashboard-stats" id="dashboard-stats">
-                            <div class="mini-stat">
-                                <span class="ms-value" id="dash-sessions">0</span>
-                                <span class="ms-label">Sessions</span>
+                    <div class="dashboard-body">
+
+                        <!-- Top bar with greeting + actions (matches Vercel ref) -->
+                        <div class="dash-topbar">
+                            <div class="dash-greeting">
+                                <h1>Good evening, <span>Abhi</span></h1>
+                                <p>Your AI command center is ready</p>
                             </div>
-                            <div class="mini-stat">
-                                <span class="ms-value" id="dash-messages">0</span>
-                                <span class="ms-label">Messages</span>
-                            </div>
-                            <div class="mini-stat">
-                                <span class="ms-value" id="dash-goals">0</span>
-                                <span class="ms-label">Goals</span>
+                            <div class="dash-top-actions">
+                                <button class="icon-circle" onclick="toggleRightPanel()" title="Toggle panel" id="btn-toggle-right">
+                                    <span class="icon-btn-icon">⊙</span>
+                                </button>
+                                <div class="user-circle">A</div>
                             </div>
                         </div>
-                        <div class="dashboard-recent" id="dashboard-recent">
-                            <h3>Recent Chats</h3>
-                            <div id="recent-sessions-list" class="recent-sessions-list"></div>
+
+                        <!-- Quick input bar (matches Vercel ref) -->
+                        <div class="dash-input">
+                            <span class="dash-input-icon">⚡</span>
+                            <input type="text" id="dash-input-field" placeholder="Ask ORION anything…" />
+                            <div class="dash-input-kbd">
+                                <kbd>⌘</kbd><kbd>K</kbd>
+                            </div>
                         </div>
+
+                        <!-- Quick action cards -->
+                        <div class="dash-section-header">
+                            <h2>Quick Actions</h2>
+                        </div>
+                        <div class="dash-cards">
+                            <div class="dash-card" onclick="showCreateProject()">
+                                <div class="dash-card-top">
+                                    <span class="dash-card-dot"></span>
+                                    <span class="dash-card-title">New Project</span>
+                                </div>
+                                <div class="dash-card-desc">Create a new project to organize your work.</div>
+                                <div class="dash-card-meta">
+                                    <span>◆ Create</span>
+                                </div>
+                            </div>
+                            <div class="dash-card" onclick="switchView('projects')">
+                                <div class="dash-card-top">
+                                    <span class="dash-card-dot"></span>
+                                    <span class="dash-card-title">Open Project</span>
+                                </div>
+                                <div class="dash-card-desc">Browse your projects and continue where you left off.</div>
+                                <div class="dash-card-meta">
+                                    <span>◆ Browse</span>
+                                </div>
+                            </div>
+                            <div class="dash-card" onclick="createNewChat()">
+                                <div class="dash-card-top">
+                                    <span class="dash-card-dot"></span>
+                                    <span class="dash-card-title">New Chat</span>
+                                </div>
+                                <div class="dash-card-desc">Start a fresh conversation with ORION.</div>
+                                <div class="dash-card-meta">
+                                    <span>◆ Chat</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Stats -->
+                        <div class="dash-section-header">
+                            <h2>Overview</h2>
+                        </div>
+                        <div class="dash-stats">
+                            <div class="dash-stat-card">
+                                <span class="dash-stat-value" id="dash-sessions">0</span>
+                                <span class="dash-stat-label">Sessions</span>
+                            </div>
+                            <div class="dash-stat-card">
+                                <span class="dash-stat-value" id="dash-messages">0</span>
+                                <span class="dash-stat-label">Messages</span>
+                            </div>
+                            <div class="dash-stat-card">
+                                <span class="dash-stat-value" id="dash-goals">0</span>
+                                <span class="dash-stat-label">Goals</span>
+                            </div>
+                        </div>
+
+                        <!-- Recent sessions -->
+                        <div class="dash-section-header">
+                            <h2>Recent Chats</h2>
+                        </div>
+                        <div class="dash-recent" id="dashboard-recent">
+                            <div id="recent-sessions-list" class="recent-sessions-list">
+                                <div class="empty-view">No recent chats.</div>
+                            </div>
+                        </div>
+
                     </div>
                 </div>
 
-                <!-- PROJECTS VIEW -->
-                <div id="view-projects" class="view hidden">
+                <!-- ── PROJECTS VIEW ── -->
+                <div id="view-projects" class="view">
                     <div class="view-header">
                         <h2>Projects</h2>
                         <button class="btn-primary" onclick="showCreateProject()">+ New Project</button>
@@ -151,8 +222,8 @@
                     </div>
                 </div>
 
-                <!-- PROJECT DETAIL VIEW -->
-                <div id="view-project-detail" class="view hidden">
+                <!-- ── PROJECT DETAIL VIEW ── -->
+                <div id="view-project-detail" class="view">
                     <div class="view-header">
                         <div class="view-header-left">
                             <button class="btn-back" onclick="switchView('projects')">← Back</button>
@@ -165,8 +236,8 @@
                     </div>
                 </div>
 
-                <!-- TASKS VIEW -->
-                <div id="view-tasks" class="view hidden">
+                <!-- ── TASKS VIEW ── -->
+                <div id="view-tasks" class="view">
                     <div class="view-header">
                         <h2>Tasks & Goals</h2>
                         <button class="btn-primary" onclick="createNewTask()">+ New Task</button>
@@ -176,8 +247,8 @@
                     </div>
                 </div>
 
-                <!-- CLIENTS VIEW -->
-                <div id="view-clients" class="view hidden">
+                <!-- ── CLIENTS VIEW ── -->
+                <div id="view-clients" class="view">
                     <div class="view-header">
                         <h2>Clients</h2>
                         <button class="btn-primary" onclick="openClientModal()">+ Add Client</button>
@@ -187,8 +258,8 @@
                     </div>
                 </div>
 
-                <!-- LEADS VIEW -->
-                <div id="view-leads" class="view hidden">
+                <!-- ── LEADS VIEW ── -->
+                <div id="view-leads" class="view">
                     <div class="view-header">
                         <h2>Lead Pipeline</h2>
                         <button class="btn-primary" onclick="openLeadModal()">+ Add Lead</button>
@@ -213,8 +284,8 @@
                     </div>
                 </div>
 
-                <!-- SYSTEMS VIEW -->
-                <div id="view-systems" class="view hidden">
+                <!-- ── SYSTEMS VIEW ── -->
+                <div id="view-systems" class="view">
                     <div class="view-header">
                         <h2>Systems & Agents</h2>
                     </div>
@@ -242,8 +313,8 @@
                     </div>
                 </div>
 
-                <!-- CALENDAR VIEW -->
-                <div id="view-calendar" class="view hidden">
+                <!-- ── CALENDAR VIEW ── -->
+                <div id="view-calendar" class="view">
                     <div class="view-header">
                         <h2>Calendar & Schedule</h2>
                         <button class="btn-primary" onclick="createNewTask()">+ New Task</button>
@@ -253,8 +324,8 @@
                     </div>
                 </div>
 
-                <!-- ANALYTICS VIEW -->
-                <div id="view-analytics" class="view hidden">
+                <!-- ── ANALYTICS VIEW ── -->
+                <div id="view-analytics" class="view">
                     <div class="view-header">
                         <h2>Analytics</h2>
                     </div>
@@ -278,8 +349,8 @@
                     </div>
                 </div>
 
-                <!-- LOGS VIEW -->
-                <div id="view-logs" class="view hidden">
+                <!-- ── LOGS VIEW ── -->
+                <div id="view-logs" class="view">
                     <div class="view-header">
                         <h2>System Logs</h2>
                         <button class="btn-primary" onclick="document.getElementById('system-logs').innerHTML = ''">Clear</button>
@@ -287,8 +358,8 @@
                     <div id="system-logs" class="logs-container"></div>
                 </div>
 
-                <!-- SETTINGS VIEW -->
-                <div id="view-settings" class="view hidden">
+                <!-- ── SETTINGS VIEW ── -->
+                <div id="view-settings" class="view">
                     <div class="view-header">
                         <h2>Settings</h2>
                     </div>
@@ -307,19 +378,17 @@
 
             </div>
 
-            <!-- CHAT SECTION -->
+            <!-- ── CHAT SECTION ── -->
             <div class="chat-section" id="chat-section">
                 <div class="chat-divider" id="chat-divider">
                     <div class="chat-divider-handle"></div>
                 </div>
-
                 <div class="chat-area">
                     <div id="messages-container">
                         <div id="messages">
                             <!-- Messages load here -->
                         </div>
                     </div>
-
                     <div class="input-wrapper">
                         <textarea id="message-input" placeholder="Talk to ORION..." rows="1"></textarea>
                         <div class="input-actions">
@@ -343,17 +412,26 @@
         <!-- RIGHT DIVIDER -->
         <div class="divider divider-right hidden" id="divider-right"></div>
 
-        <!-- RIGHT PANEL (Collapsible) -->
+        <!-- ============================================================
+             RIGHT PANEL (Vercel-style details panel)
+             ============================================================ -->
         <aside id="sidebar-right" class="sidebar-right collapsed">
-
             <button class="right-toggle" id="right-toggle" title="Toggle panel">
                 <span>◀</span>
             </button>
 
-            <!-- Session Info -->
+            <!-- Profile card (Vercel ref style) -->
+            <div class="profile-card">
+                <div class="profile-avatar">A</div>
+                <div class="profile-name">Abhinav</div>
+                <div class="profile-role">ORION · Active</div>
+                <span class="profile-badge">✦ Pro</span>
+            </div>
+
+            <!-- Session info -->
             <div class="context-card">
                 <div class="card-header">
-                    <span class="card-icon">💬</span>
+                    <span class="card-icon">◇</span>
                     <span class="card-title">Session</span>
                 </div>
                 <div class="card-content">
@@ -368,10 +446,10 @@
                 </div>
             </div>
 
-            <!-- System Status -->
+            <!-- System status -->
             <div class="context-card">
                 <div class="card-header">
-                    <span class="card-icon">⚙️</span>
+                    <span class="card-icon">⊙</span>
                     <span class="card-title">Status</span>
                 </div>
                 <div class="card-content">
@@ -388,10 +466,32 @@
                 </div>
             </div>
 
-            <!-- Recent Activity -->
+            <!-- Shortcuts (Vercel ref style) -->
             <div class="context-card">
                 <div class="card-header">
-                    <span class="card-icon">📜</span>
+                    <span class="card-icon">⌘</span>
+                    <span class="card-title">Shortcuts</span>
+                </div>
+                <div class="card-content">
+                    <div class="shortcut-row">
+                        <span class="shortcut-label">New chat</span>
+                        <span class="shortcut-key"><kbd>⌘</kbd><kbd>N</kbd></span>
+                    </div>
+                    <div class="shortcut-row">
+                        <span class="shortcut-label">Search</span>
+                        <span class="shortcut-key"><kbd>⌘</kbd><kbd>K</kbd></span>
+                    </div>
+                    <div class="shortcut-row">
+                        <span class="shortcut-label">Toggle sidebar</span>
+                        <span class="shortcut-key"><kbd>⌘</kbd><kbd>B</kbd></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Activity -->
+            <div class="context-card">
+                <div class="card-header">
+                    <span class="card-icon">≡</span>
                     <span class="card-title">Activity</span>
                 </div>
                 <div class="card-content">
@@ -405,6 +505,10 @@
             </div>
         </aside>
     </div>
+
+    <!-- ============================================================
+         MODALS
+         ============================================================ -->
 
     <!-- Client Modal -->
     <div id="client-modal" class="modal hidden">
@@ -489,7 +593,7 @@
         </div>
     </div>
 
-    <!-- Prompt Modal (replaces native prompt()) -->
+    <!-- Prompt Modal -->
     <div id="prompt-modal" class="modal hidden">
         <div class="modal-content" style="max-width: 380px;">
             <div class="modal-header">
@@ -507,7 +611,7 @@
         </div>
     </div>
 
-    <!-- Confirm Modal (replaces native confirm()) -->
+    <!-- Confirm Modal -->
     <div id="confirm-modal" class="modal hidden">
         <div class="modal-content" style="max-width: 380px;">
             <div class="modal-header">
@@ -524,7 +628,7 @@
         </div>
     </div>
 
-    <!-- Alert Modal (replaces native alert()) -->
+    <!-- Alert Modal -->
     <div id="alert-modal" class="modal hidden">
         <div class="modal-content" style="max-width: 380px;">
             <div class="modal-header">

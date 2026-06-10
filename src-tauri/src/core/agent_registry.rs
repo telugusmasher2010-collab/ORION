@@ -72,7 +72,7 @@ impl AgentRegistry {
             }
         }
 
-        if best_score > 0 { best_id } else { None }
+        if best_score >= 6 { best_id } else { None }
     }
 
     pub fn execute_task(

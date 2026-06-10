@@ -129,6 +129,11 @@ impl Agent {
             serde_json::json!({ "role": "user", "content": task }),
         ];
 
+        // Try local Ollama first (works offline, free, already configured)
+        if let Ok(text) = try_ollama_non_streaming(&messages, settings) {
+            return Ok(text);
+        }
+
         // Cloud fallback chain: Groq → OpenRouter Claude → OpenRouter Grok → Gemini
         if let Ok(text) = try_groq_non_streaming(&messages, settings) {
             return Ok(text);
@@ -241,6 +246,45 @@ fn get_api_key(settings: &Value, path: &[&str]) -> Option<String> {
 
 fn is_key_valid(key: &str) -> bool {
     !key.is_empty() && !key.contains("PASTE")
+}
+
+fn try_ollama_non_streaming(messages: &[Value], settings: &Value) -> Result<String, String> {
+    let host = settings
+        .get("ollama")
+        .and_then(|o| o.get("host"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("http://localhost:11434");
+    let model = settings
+        .get("ollama")
+        .and_then(|o| o.get("models"))
+        .and_then(|m| m.get("coder"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("qwen2.5-coder:3b");
+
+    let body = serde_json::json!({
+        "model": model,
+        "messages": messages,
+        "stream": false,
+    });
+    let url = format!("{}/api/chat", host.trim_end_matches('/'));
+
+    let raw = run_bridge(&url, HashMap::new(), body)?;
+
+    // Parse Ollama's JSON response to extract message.content
+    if let Ok(json) = serde_json::from_str::<Value>(&raw) {
+        if let Some(content) = json
+            .get("message")
+            .and_then(|m| m.get("content"))
+            .and_then(|v| v.as_str())
+        {
+            return Ok(content.to_string());
+        }
+    }
+    // If JSON didn't parse or had no content, return raw text
+    if !raw.is_empty() {
+        return Ok(raw);
+    }
+    Err("Empty response from Ollama".into())
 }
 
 fn try_groq_non_streaming(messages: &[Value], settings: &Value) -> Result<String, String> {

@@ -20,7 +20,7 @@ impl UserProfile {
         preferences.insert("communication_style".into(), "direct".into());
         preferences.insert("code_style".into(), "modern".into());
         preferences.insert("response_length".into(), "medium".into());
-        preferences.insert("use_telugu".into(), "true".into());
+        preferences.insert("use_telugu".into(), "false".into());
         preferences.insert("argument_strength".into(), "direct".into());
         preferences.insert("voice_enabled".into(), "false".into());
 

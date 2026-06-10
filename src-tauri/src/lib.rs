@@ -22,6 +22,8 @@ static CONTEXT_MANAGER: OnceLock<Mutex<core::context_manager::ContextManager>> =
 static SUGGESTION_ENGINE: OnceLock<Mutex<core::suggestion_engine::SuggestionEngine>> = OnceLock::new();
 // Ollama brain (health check + model list)
 static OLLAMA_BRAIN: OnceLock<Mutex<core::ollama_brain::OllamaBrain>> = OnceLock::new();
+// User profile (name, preferences, learning, memory)
+static USER_PROFILE: OnceLock<Mutex<core::user_profile::UserProfile>> = OnceLock::new();
 
 fn get_db() -> &'static db::Database {
     DB.get().expect("Database not initialized")
@@ -49,6 +51,10 @@ fn get_suggestion_engine() -> &'static Mutex<core::suggestion_engine::Suggestion
 
 fn get_ollama_brain() -> &'static Mutex<core::ollama_brain::OllamaBrain> {
     OLLAMA_BRAIN.get().expect("Ollama brain not initialized")
+}
+
+fn get_user_profile() -> &'static Mutex<core::user_profile::UserProfile> {
+    USER_PROFILE.get().expect("User profile not initialized")
 }
 
 fn debug_log(msg: &str) {
@@ -166,6 +172,21 @@ fn chat_inner(app: &tauri::AppHandle, message: &str, session_id: i64) -> Result<
 
     let system_prompt = get_personality().lock().unwrap().build_system_prompt("");
 
+    // Inject user profile context so ORION knows the user
+    let profile_context = get_user_profile().lock().unwrap().get_profile_for_context();
+    let enriched_prompt = if let Some(name) = profile_context["name"].as_str() {
+        format!(
+            "{}\n\n## USER PROFILE\nYou are talking to {}.\nPreferences: {}\nActive projects: {}\nActive goals: {}",
+            system_prompt,
+            name,
+            serde_json::to_string(&profile_context["preferences"]).unwrap_or_default(),
+            profile_context["projects"].as_array().map(|a| a.len()).unwrap_or(0),
+            profile_context["goals"].as_array().map(|a| a.len()).unwrap_or(0),
+        )
+    } else {
+        system_prompt.clone()
+    };
+
     let response = match get_registry().lock().unwrap().execute_task(message, &settings) {
         Ok(Some((_info, agent_resp))) => {
             let workspace = RESOURCE_DIR.get()
@@ -187,15 +208,20 @@ fn chat_inner(app: &tauri::AppHandle, message: &str, session_id: i64) -> Result<
             agent_resp.response
         }
         Ok(None) => {
-            core::ai_brain::chat(app, message, session_id, settings, &history, &system_prompt)?
+            core::ai_brain::chat(app, message, session_id, settings, &history, &enriched_prompt)?
         }
         Err(e) => {
             debug_log(&format!("Agent error, falling back: {}", e));
-            core::ai_brain::chat(app, message, session_id, settings, &history, &system_prompt)?
+            core::ai_brain::chat(app, message, session_id, settings, &history, &enriched_prompt)?
         }
     };
 
     let _ = get_db().save_message(session_id, "assistant", &response, &mode, "groq");
+
+    // Learn from this interaction (update preferences, communication patterns)
+    if let Ok(mut profile) = get_user_profile().lock() {
+        profile.learn_from_interaction(message, &response);
+    }
 
     debug_log(&format!("Chat done: {} chars", response.len()));
     Ok(response)
@@ -642,15 +668,65 @@ pub fn run() {
                 eprintln!("[ORION] Database already initialized");
             }
 
-            let resource_dir = app.path().resource_dir()
-                .unwrap_or_else(|_| std::path::PathBuf::from("."));
+            // Initialize user profile from DB (get the static ref after DB is set)
+            let user_profile = core::user_profile::UserProfile::new(get_db());
+            if USER_PROFILE.set(Mutex::new(user_profile)).is_err() {
+                eprintln!("[ORION] User profile already initialized");
+            }
+
+            // Use current_exe instead of resource_dir (which returns bare drive letter on Tauri v2 Windows)
+            // Binary at <root>/src-tauri/target/release/orion.exe → up 4 dirs to get <root>
+            let resource_dir = std::env::current_exe()
+                .ok()
+                .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+                .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+                .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+                .and_then(|p| p.parent().map(|p| p.to_path_buf()))
+                .unwrap_or_else(|| app.path().resource_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")));
 
             // Store resource dir for settings file resolution
             let _ = RESOURCE_DIR.set(resource_dir.clone());
 
             // Initialize bridge path so Node.js child processes can find http-bridge.js
+            // Primary: resolve from binary location (current_exe)
+            // Binary at <root>/src-tauri/target/release/orion.exe
+            // JS at     <root>/CORE/http-bridge.js
+            let exe_path = std::env::current_exe().ok();
+            let exe_bridge = exe_path
+                .as_ref()
+                .and_then(|p| p.parent())
+                .and_then(|p| p.parent())
+                .and_then(|p| p.parent())
+                .and_then(|p| p.parent())
+                .map(|p| p.join("CORE/http-bridge.js"));
+
+            let bridge_candidates = vec![
+                resource_dir.join("CORE/http-bridge.js"),
+                std::path::PathBuf::from("../CORE/http-bridge.js"),
+                std::path::PathBuf::from("../../CORE/http-bridge.js"),
+                std::path::PathBuf::from("../../../CORE/http-bridge.js"),
+            ];
+            // Add exe-relative candidate if available
+            let bridge_candidates: Vec<_> = exe_bridge
+                .into_iter()
+                .chain(bridge_candidates)
+                .collect();
+
+            for c in &bridge_candidates {
+                println!("[ORION] Bridge candidate: {:?} exists={}", c, c.exists());
+            }
+
+            let bridge_path = bridge_candidates
+                .iter()
+                .find(|p| p.exists())
+                .cloned()
+                .unwrap_or_else(|| {
+                    let cwd = std::env::current_dir().unwrap_or_default();
+                    cwd.join("CORE/http-bridge.js")
+                });
+            println!("[ORION] Bridge path selected: {:?}", bridge_path);
             core::constants::set_bridge_path(
-                resource_dir.join("CORE/http-bridge.js").to_string_lossy().to_string()
+                bridge_path.to_string_lossy().to_string()
             );
 
             // Ensure settings.json exists in app data dir (writable copy)
