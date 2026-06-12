@@ -38,7 +38,7 @@ impl OllamaBrain {
 
         let lines: Vec<String> = reader
             .lines()
-            .filter_map(|l| l.ok())
+            .map_while(Result::ok)
             .filter(|l| !l.is_empty())
             .collect();
 
@@ -50,7 +50,7 @@ impl OllamaBrain {
             return Ok(false);
         }
 
-        let raw = lines.join("");
+        let raw = lines.concat();
         if let Ok(json) = serde_json::from_str::<Value>(&raw) {
             if json.get("error").is_some() {
                 self.available = false;
@@ -94,7 +94,7 @@ impl OllamaBrain {
 
         let lines: Vec<String> = reader
             .lines()
-            .filter_map(|l| l.ok())
+            .map_while(Result::ok)
             .filter(|l| !l.is_empty())
             .collect();
 
@@ -104,7 +104,7 @@ impl OllamaBrain {
             return Err("Empty response from Ollama".into());
         }
 
-        let raw = lines.join("");
+        let raw = lines.concat();
         let json: Value = serde_json::from_str(&raw).map_err(|e| format!("JSON parse: {}", e))?;
 
         if let Some(err) = json.get("error").and_then(|v| v.as_str()) {

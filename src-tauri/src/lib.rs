@@ -620,7 +620,7 @@ fn format_remind_at(minutes_from_now: i64) -> String {
     // Approximate date (good enough for reminders)
     let year = 1970 + (days / 365) as u32;
     let day_of_year = (days % 365) as u32;
-    let month_days = [31, if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let month_days = [31, if year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400)) { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
     let mut remaining = day_of_year;
     let mut month = 1u32;
     let mut day = 1u32;

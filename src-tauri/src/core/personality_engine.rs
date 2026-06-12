@@ -46,7 +46,7 @@ pub struct PersonalityEngine {
 }
 
 impl PersonalityEngine {
-    pub fn new(orion_root: &PathBuf) -> Self {
+    pub fn new(orion_root: &std::path::Path) -> Self {
         let system_rules = Self::read_file(&orion_root.join("CORE/systems_rules.md.txt"));
         let master_prompt = Self::read_file(&orion_root.join("PROMPTS/master_prompt.md.txt"));
         let constraints = Self::read_file(&orion_root.join("CONFIG/constraints.md.txt"));

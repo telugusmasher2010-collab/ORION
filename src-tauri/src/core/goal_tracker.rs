@@ -61,7 +61,7 @@ impl GoalTracker {
         upcoming.sort_by(|a, b| {
             let a_dl = a.get("deadline").and_then(|d| d.as_str()).unwrap_or("");
             let b_dl = b.get("deadline").and_then(|d| d.as_str()).unwrap_or("");
-            a_dl.cmp(&b_dl)
+            a_dl.cmp(b_dl)
         });
         upcoming
     }

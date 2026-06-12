@@ -291,7 +291,7 @@ fn parse_iso_to_secs(iso: &str) -> Option<u64> {
 }
 
 fn days_from_epoch(year: i64, month: u64, day: u64) -> Option<u64> {
-    if month < 1 || month > 12 || day < 1 || day > 31 {
+    if !(1..=12).contains(&month) || !(1..=31).contains(&day) {
         return None;
     }
 
@@ -314,8 +314,8 @@ fn days_from_epoch(year: i64, month: u64, day: u64) -> Option<u64> {
         30,
         31,
     ];
-    for m in 0..(month as usize - 1) {
-        total_days += months[m] as i64;
+    for days in months.iter().take(month as usize - 1) {
+        total_days += *days as i64;
     }
 
     total_days += day as i64 - 1;

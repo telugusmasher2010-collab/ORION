@@ -15,7 +15,7 @@ impl ArgumentStrength {
         match s.to_lowercase().as_str() {
             "gentle" => ArgumentStrength::Gentle,
             "stubborn" => ArgumentStrength::Stubborn,
-            "direct" | _ => ArgumentStrength::Direct,
+            _ => ArgumentStrength::Direct,
         }
     }
 
@@ -163,12 +163,10 @@ impl ArgumentEngine {
 
     fn gentle_pushback(&self, address: &str, issue: &Value) -> String {
         let reason = issue["reason"].as_str().unwrap_or("unknown");
-        let templates = vec![
-            format!("{}, have you considered that {}?", address, reason),
+        let templates = [format!("{}, have you considered that {}?", address, reason),
             format!("{}, maybe think about why {} might be a problem.", address, reason),
             format!("{}, quick thought — {}. Worth checking before we proceed.", address, reason),
-            format!("{}, not saying no, but {}. What do you think?", address, reason),
-        ];
+            format!("{}, not saying no, but {}. What do you think?", address, reason)];
         let idx = pseudo_random_index(templates.len());
         templates[idx].clone()
     }
@@ -182,24 +180,20 @@ impl ArgumentEngine {
             _ => "",
         };
 
-        let templates = vec![
-            format!("{}, that's a bad idea because {}. {}Here's why: ", address, reason, risk_warning),
+        let templates = [format!("{}, that's a bad idea because {}. {}Here's why: ", address, reason, risk_warning),
             format!("{}, I'm not letting you do that because {}. ", address, reason),
             format!("{}, stop. {} — that's a problem. Here's a better approach: ", address, reason),
-            format!("{}, we need to talk about this. {}. Here's what we should do instead: ", address, reason),
-        ];
+            format!("{}, we need to talk about this. {}. Here's what we should do instead: ", address, reason)];
         let idx = pseudo_random_index(templates.len());
         templates[idx].clone()
     }
 
     fn stubborn_pushback(&self, address: &str, issue: &Value) -> String {
         let reason = issue["reason"].as_str().unwrap_or("unknown");
-        let templates = vec![
-            format!("{}, I'm not proceeding until you explain why {} is worth the risk.", address, reason),
+        let templates = [format!("{}, I'm not proceeding until you explain why {} is worth the risk.", address, reason),
             format!("{}, I'm blocking this. {}. Convince me otherwise or we're doing it my way.", address, reason),
             format!("{}, no. {}. Tell me exactly how you'll handle that, or we're stopping here.", address, reason),
-            format!("{}, I'm refusing this. {}. You need to explain the plan before I help.", address, reason),
-        ];
+            format!("{}, I'm refusing this. {}. You need to explain the plan before I help.", address, reason)];
         let idx = pseudo_random_index(templates.len());
         templates[idx].clone()
     }
@@ -231,7 +225,7 @@ impl ArgumentEngine {
         }
 
         let resolved = self.argument_history.last().map(|a| a.resolved).unwrap_or(false);
-        if !resolved && self.argument_history.len() > 0 {
+        if !resolved && !self.argument_history.is_empty() {
             self.persuasion_attempts += 1;
         }
     }

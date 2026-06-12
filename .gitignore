@@ -17,4 +17,5 @@ Thumbs.db
 .idea/
 
 # Logs
+*.bak
 *.log

@@ -74,8 +74,11 @@ async function makeRequest(config) {
 
         if (!stream || !response.body) {
             const text = await response.text();
-            process.stdout.write(text + '\n');
-            process.stdout.on('drain', () => process.exit(0));
+            if (!process.stdout.write(text + '\n')) {
+                process.stdout.on('drain', () => process.exit(0));
+            } else {
+                process.exit(0);
+            }
             return;
         }
 
