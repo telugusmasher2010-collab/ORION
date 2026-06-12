@@ -608,27 +608,10 @@ fn check_ollama_health() -> serde_json::Value {
 }
 
 fn format_remind_at(minutes_from_now: i64) -> String {
-    let dur = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default();
-    let total_secs = dur.as_secs() + (minutes_from_now.max(0) as u64 * 60);
-    let days = total_secs / 86400;
-    let time_secs = total_secs % 86400;
-    let hours = time_secs / 3600;
-    let minutes = (time_secs % 3600) / 60;
-    let seconds = time_secs % 60;
-    // Approximate date (good enough for reminders)
-    let year = 1970 + (days / 365) as u32;
-    let day_of_year = (days % 365) as u32;
-    let month_days = [31, if year.is_multiple_of(4) && (!year.is_multiple_of(100) || year.is_multiple_of(400)) { 29 } else { 28 }, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    let mut remaining = day_of_year;
-    let mut month = 1u32;
-    let mut day = 1u32;
-    for (i, &md) in month_days.iter().enumerate() {
-        if remaining < md { month = i as u32 + 1; day = remaining + 1; break; }
-        remaining -= md;
-    }
-    format!("{:04}-{:02}-{:02} {:02}:{:02}:{:02}", year, month, day, hours, minutes, seconds)
+    use chrono::Utc;
+    let now = Utc::now();
+    let remind = now + chrono::Duration::minutes(minutes_from_now.max(0));
+    remind.format("%Y-%m-%d %H:%M:%S").to_string()
 }
 
 // ========================================
