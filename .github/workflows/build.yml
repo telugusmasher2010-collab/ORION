@@ -1,4 +1,4 @@
-name: Build ORION
+name: Build & Release ORION
 
 on:
   push:
@@ -28,14 +28,40 @@ jobs:
         env:
           RUSTFLAGS: -A dead_code
 
-      - name: Upload MSI installer
-        uses: actions/upload-artifact@v4
-        with:
-          name: ORION-Windows
-          path: src-tauri/target/release/bundle/msi/*.msi
+      - name: Get version from tauri.conf.json
+        id: version
+        shell: pwsh
+        run: |
+          $version = (Get-Content src-tauri/tauri.conf.json | ConvertFrom-Json).version
+          echo "version=$version" >> $env:GITHUB_OUTPUT
 
-      - name: Upload NSIS installer
-        uses: actions/upload-artifact@v4
+      - name: Generate release tag
+        id: tag
+        shell: pwsh
+        run: |
+          $tag = "v${{ steps.version.outputs.version }}-b${{ github.run_number }}"
+          echo "tag=$tag" >> $env:GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: ORION-Windows-NSIS
-          path: src-tauri/target/release/bundle/nsis/*.exe
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: "ORION ${{ steps.version.outputs.version }} (build ${{ github.run_number }})"
+          body: |
+            Auto-built from commit ${{ github.sha }}
+
+            ## Changes
+            ${{ github.event.head_commit.message }}
+
+            ## What's included
+            - ORION Tauri desktop app
+            - Full Rust backend with all CORE modules
+            - Vercel-style UI
+            - Multi-brain AI routing (Groq, OpenRouter, Gemini, Ollama)
+          files: |
+            src-tauri/target/release/bundle/msi/*.msi
+            src-tauri/target/release/bundle/nsis/*.exe
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
