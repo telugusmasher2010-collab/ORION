@@ -1,13 +1,11 @@
-use std::sync::OnceLock;
+use std::path::PathBuf;
 
-pub const NODE_PATH: &str = "C:\\Program Files\\nodejs\\node.exe";
-
-static BRIDGE: OnceLock<String> = OnceLock::new();
-
-pub fn set_bridge_path(path: String) {
-    let _ = BRIDGE.set(path);
-}
-
-pub fn bridge_path() -> &'static str {
-    BRIDGE.get().expect("bridge_path not initialized")
+pub fn orion_root() -> PathBuf {
+    std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("../../")
+        .canonicalize()
+        .unwrap_or_else(|_| PathBuf::from("C:/ORION"))
 }

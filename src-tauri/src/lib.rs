@@ -670,48 +670,6 @@ pub fn run() {
             // Store resource dir for settings file resolution
             let _ = RESOURCE_DIR.set(resource_dir.clone());
 
-            // Initialize bridge path so Node.js child processes can find http-bridge.js
-            // Primary: resolve from binary location (current_exe)
-            // Binary at <root>/src-tauri/target/release/orion.exe
-            // JS at     <root>/CORE/http-bridge.js
-            let exe_path = std::env::current_exe().ok();
-            let exe_bridge = exe_path
-                .as_ref()
-                .and_then(|p| p.parent())
-                .and_then(|p| p.parent())
-                .and_then(|p| p.parent())
-                .and_then(|p| p.parent())
-                .map(|p| p.join("CORE/http-bridge.js"));
-
-            let bridge_candidates = vec![
-                resource_dir.join("CORE/http-bridge.js"),
-                std::path::PathBuf::from("../CORE/http-bridge.js"),
-                std::path::PathBuf::from("../../CORE/http-bridge.js"),
-                std::path::PathBuf::from("../../../CORE/http-bridge.js"),
-            ];
-            // Add exe-relative candidate if available
-            let bridge_candidates: Vec<_> = exe_bridge
-                .into_iter()
-                .chain(bridge_candidates)
-                .collect();
-
-            for c in &bridge_candidates {
-                println!("[ORION] Bridge candidate: {:?} exists={}", c, c.exists());
-            }
-
-            let bridge_path = bridge_candidates
-                .iter()
-                .find(|p| p.exists())
-                .cloned()
-                .unwrap_or_else(|| {
-                    let cwd = std::env::current_dir().unwrap_or_default();
-                    cwd.join("CORE/http-bridge.js")
-                });
-            println!("[ORION] Bridge path selected: {:?}", bridge_path);
-            core::constants::set_bridge_path(
-                bridge_path.to_string_lossy().to_string()
-            );
-
             // Ensure settings.json exists in app data dir (writable copy)
             let settings_dst = data_dir.join("CONFIG/settings.json");
             if !settings_dst.exists() {

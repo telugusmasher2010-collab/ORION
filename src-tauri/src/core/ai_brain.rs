@@ -1,8 +1,6 @@
 use crate::core::brain_router::{BrainConfig, BrainRouter};
-use crate::core::constants;
+use crate::core::native_http;
 use serde_json::Value;
-use std::io::{BufRead, BufReader, Write};
-use std::process::{Command, Stdio};
 use tauri::Emitter;
 
 #[derive(serde::Serialize, Clone)]
@@ -53,9 +51,7 @@ pub fn chat(
 
     let result = match brain.brain.as_str() {
         "groq" => groq_request(&settings, &brain, &messages, app),
-        "openrouter" => {
-            openrouter_request(&settings, &brain, &messages, app)
-        }
+        "openrouter" => openrouter_request(&settings, &brain, &messages, app),
         "nvidia" => nvidia_request(&settings, &brain, &messages, app),
         "gemini" => gemini_request(&settings, &brain, &messages, app),
         "ollama" => ollama_request(&settings, &brain, &messages, app),
@@ -135,6 +131,10 @@ fn try_fallback(
     }
 }
 
+// ========================================
+// Request builders (native HTTP via reqwest)
+// ========================================
+
 fn ollama_request(
     settings: &Value,
     brain: &BrainConfig,
@@ -154,88 +154,10 @@ fn ollama_request(
         .unwrap_or("http://localhost:11434");
 
     let url = format!("{}/api/chat", host);
-    let req = BridgeRequest {
-        method: "POST".into(),
-        url,
-        headers: std::collections::HashMap::new(),
-        body,
-        stream: true,
-    };
-    let input = serde_json::to_string(&req).map_err(|e| format!("JSON: {}", e))?;
-
-    let mut child = Command::new(constants::NODE_PATH)
-        .arg(constants::bridge_path())
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Spawn node: {}", e))?;
-
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin.write_all(input.as_bytes()).map_err(|e| format!("stdin: {}", e))?;
-        let _ = stdin.flush();
-    }
-
-    let stdout = child.stdout.take().ok_or_else(|| "No stdout".to_string())?;
-    let reader = BufReader::new(stdout);
-    let mut full_text = String::new();
-
-    for line in reader.lines() {
-        let line = line.map_err(|e| format!("Read: {}", e))?;
-        if line.is_empty() { continue; }
-        if let Ok(json) = serde_json::from_str::<Value>(&line) {
-            if let Some(err) = json.get("error").and_then(|v| v.as_str()) {
-                return Err(err.to_string());
-            }
-            if json.get("done").and_then(|v| v.as_bool()) == Some(true) {
-                break;
-            }
-            if let Some(chunk) = json.get("chunk").and_then(|v| v.as_str()) {
-                full_text.push_str(chunk);
-                let _ = app.emit("chat_chunk", ChatChunkPayload { chunk: chunk.to_string() });
-            }
-        }
-    }
-
-    let _ = child.wait();
-    if full_text.is_empty() {
-        let err = capture_stderr(&mut child);
-        if !err.is_empty() {
-            return Err(format!("Bridge: {}", err));
-        }
-    }
-    Ok(full_text)
+    native_http::stream_request(&url, std::collections::HashMap::new(), body, |chunk| {
+        let _ = app.emit("chat_chunk", ChatChunkPayload { chunk: chunk.to_string() });
+    })
 }
-
-// ========================================
-// Node.js HTTP bridge
-// ========================================
-// Node.js HTTP bridge
-// ========================================
-
-#[derive(serde::Serialize)]
-struct BridgeRequest {
-    method: String,
-    url: String,
-    headers: std::collections::HashMap<String, String>,
-    body: Value,
-    stream: bool,
-}
-
-fn capture_stderr(child: &mut std::process::Child) -> String {
-    use std::io::Read;
-    if let Some(stderr) = child.stderr.take() {
-        let mut buf = String::new();
-        let _ = std::io::BufReader::new(stderr).read_to_string(&mut buf);
-        buf.trim().to_string()
-    } else {
-        String::new()
-    }
-}
-
-// ========================================
-// Request builders (emit chunks during processing)
-// ========================================
 
 fn groq_request(
     settings: &Value,
@@ -265,59 +187,9 @@ fn groq_request(
     headers.insert("Authorization".into(), format!("Bearer {}", api_key));
 
     let url = "https://api.groq.com/openai/v1/chat/completions".to_string();
-    let req = BridgeRequest {
-        method: "POST".into(),
-        url,
-        headers,
-        body,
-        stream: true,
-    };
-    let input = serde_json::to_string(&req).map_err(|e| format!("JSON: {}", e))?;
-
-    let mut child = Command::new(constants::NODE_PATH)
-        .arg(constants::bridge_path())
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Spawn node: {}", e))?;
-
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin.write_all(input.as_bytes()).map_err(|e| format!("stdin: {}", e))?;
-        let _ = stdin.flush();
-    }
-
-    let stdout = child.stdout.take().ok_or_else(|| "No stdout".to_string())?;
-    let reader = BufReader::new(stdout);
-    let mut full_text = String::new();
-
-    for line in reader.lines() {
-        let line = line.map_err(|e| format!("Read: {}", e))?;
-        if line.is_empty() {
-            continue;
-        }
-        if let Ok(json) = serde_json::from_str::<Value>(&line) {
-            if let Some(err) = json.get("error").and_then(|v| v.as_str()) {
-                return Err(err.to_string());
-            }
-            if json.get("done").and_then(|v| v.as_bool()) == Some(true) {
-                break;
-            }
-            if let Some(chunk) = json.get("chunk").and_then(|v| v.as_str()) {
-                full_text.push_str(chunk);
-                let _ = app.emit("chat_chunk", ChatChunkPayload { chunk: chunk.to_string() });
-            }
-        }
-    }
-
-    let _ = child.wait();
-    if full_text.is_empty() {
-        let err = capture_stderr(&mut child);
-        if !err.is_empty() {
-            return Err(format!("Bridge: {}", err));
-        }
-    }
-    Ok(full_text)
+    native_http::stream_request(&url, headers, body, |chunk| {
+        let _ = app.emit("chat_chunk", ChatChunkPayload { chunk: chunk.to_string() });
+    })
 }
 
 fn openrouter_request(
@@ -350,64 +222,10 @@ fn openrouter_request(
     headers.insert("X-Title".into(), "ORION".into());
 
     let url = "https://openrouter.ai/api/v1/chat/completions".to_string();
-    let req = BridgeRequest {
-        method: "POST".into(),
-        url,
-        headers,
-        body,
-        stream: true,
-    };
-    let input = serde_json::to_string(&req).map_err(|e| format!("JSON: {}", e))?;
-
-    let mut child = Command::new(constants::NODE_PATH)
-        .arg(constants::bridge_path())
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Spawn node: {}", e))?;
-
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin.write_all(input.as_bytes()).map_err(|e| format!("stdin: {}", e))?;
-        let _ = stdin.flush();
-    }
-
-    let stdout = child.stdout.take().ok_or_else(|| "No stdout".to_string())?;
-    let reader = BufReader::new(stdout);
-    let mut full_text = String::new();
-
-    for line in reader.lines() {
-        let line = line.map_err(|e| format!("Read: {}", e))?;
-        if line.is_empty() {
-            continue;
-        }
-        if let Ok(json) = serde_json::from_str::<Value>(&line) {
-            if let Some(err) = json.get("error").and_then(|v| v.as_str()) {
-                return Err(err.to_string());
-            }
-            if json.get("done").and_then(|v| v.as_bool()) == Some(true) {
-                break;
-            }
-            if let Some(chunk) = json.get("chunk").and_then(|v| v.as_str()) {
-                full_text.push_str(chunk);
-                let _ = app.emit("chat_chunk", ChatChunkPayload { chunk: chunk.to_string() });
-            }
-        }
-    }
-
-    let _ = child.wait();
-    if full_text.is_empty() {
-        let err = capture_stderr(&mut child);
-        if !err.is_empty() {
-            return Err(format!("Bridge: {}", err));
-        }
-    }
-    Ok(full_text)
+    native_http::stream_request(&url, headers, body, |chunk| {
+        let _ = app.emit("chat_chunk", ChatChunkPayload { chunk: chunk.to_string() });
+    })
 }
-
-// ========================================
-// Nvidia NIM request (OpenAI-compatible)
-// ========================================
 
 fn nvidia_request(
     settings: &Value,
@@ -437,66 +255,9 @@ fn nvidia_request(
     headers.insert("Authorization".into(), format!("Bearer {}", api_key));
 
     let url = "https://integrate.api.nvidia.com/v1/chat/completions".to_string();
-    let req = BridgeRequest {
-        method: "POST".into(),
-        url,
-        headers,
-        body,
-        stream: true,
-    };
-    let input = serde_json::to_string(&req).map_err(|e| format!("JSON: {}", e))?;
-
-    let mut child = Command::new(constants::NODE_PATH)
-        .arg(constants::bridge_path())
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Spawn node: {}", e))?;
-
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin
-            .write_all(input.as_bytes())
-            .map_err(|e| format!("stdin: {}", e))?;
-        let _ = stdin.flush();
-    }
-
-    let stdout = child.stdout.take().ok_or_else(|| "No stdout".to_string())?;
-    let reader = BufReader::new(stdout);
-    let mut full_text = String::new();
-
-    for line in reader.lines() {
-        let line = line.map_err(|e| format!("Read: {}", e))?;
-        if line.is_empty() {
-            continue;
-        }
-        if let Ok(json) = serde_json::from_str::<Value>(&line) {
-            if let Some(err) = json.get("error").and_then(|v| v.as_str()) {
-                return Err(err.to_string());
-            }
-            if json.get("done").and_then(|v| v.as_bool()) == Some(true) {
-                break;
-            }
-            if let Some(chunk) = json.get("chunk").and_then(|v| v.as_str()) {
-                full_text.push_str(chunk);
-                let _ = app.emit(
-                    "chat_chunk",
-                    ChatChunkPayload {
-                        chunk: chunk.to_string(),
-                    },
-                );
-            }
-        }
-    }
-
-    let _ = child.wait();
-    if full_text.is_empty() {
-        let err = capture_stderr(&mut child);
-        if !err.is_empty() {
-            return Err(format!("Bridge: {}", err));
-        }
-    }
-    Ok(full_text)
+    native_http::stream_request(&url, headers, body, |chunk| {
+        let _ = app.emit("chat_chunk", ChatChunkPayload { chunk: chunk.to_string() });
+    })
 }
 
 fn gemini_request(
@@ -549,54 +310,7 @@ fn gemini_request(
         brain.model, api_key
     );
 
-    let req = BridgeRequest {
-        method: "POST".into(),
-        url,
-        headers: std::collections::HashMap::new(),
-        body,
-        stream: true,
-    };
-    let input = serde_json::to_string(&req).map_err(|e| format!("JSON: {}", e))?;
-
-    let mut child = Command::new(constants::NODE_PATH)
-        .arg(constants::bridge_path())
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Spawn node: {}", e))?;
-
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin.write_all(input.as_bytes()).map_err(|e| format!("stdin: {}", e))?;
-        let _ = stdin.flush();
-    }
-
-    let stdout = child.stdout.take().ok_or_else(|| "No stdout".to_string())?;
-    let reader = BufReader::new(stdout);
-    let mut full_text = String::new();
-
-    for line in reader.lines() {
-        let line = line.map_err(|e| format!("Read: {}", e))?;
-        if let Ok(json) = serde_json::from_str::<Value>(&line) {
-            if let Some(err) = json.get("error").and_then(|v| v.as_str()) {
-                return Err(err.to_string());
-            }
-            if json.get("done").and_then(|v| v.as_bool()) == Some(true) {
-                break;
-            }
-            if let Some(chunk) = json.get("chunk").and_then(|v| v.as_str()) {
-                full_text.push_str(chunk);
-                let _ = app.emit("chat_chunk", ChatChunkPayload { chunk: chunk.to_string() });
-            }
-        }
-    }
-
-    let _ = child.wait();
-    if full_text.is_empty() {
-        let err = capture_stderr(&mut child);
-        if !err.is_empty() {
-            return Err(format!("Bridge: {}", err));
-        }
-    }
-    Ok(full_text)
+    native_http::stream_request(&url, std::collections::HashMap::new(), body, |chunk| {
+        let _ = app.emit("chat_chunk", ChatChunkPayload { chunk: chunk.to_string() });
+    })
 }

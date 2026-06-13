@@ -1,9 +1,7 @@
-use crate::core::constants;
+use crate::core::native_http;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::io::{BufRead, BufReader, Write};
-use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone, Serialize)]
@@ -176,65 +174,8 @@ impl Agent {
 }
 
 // ========================================
-// LLM request helpers (non-streaming, for agent use)
+// LLM request helpers (non-streaming, native HTTP)
 // ========================================
-
-#[derive(Serialize)]
-struct BridgeRequest {
-    method: String,
-    url: String,
-    headers: HashMap<String, String>,
-    body: Value,
-    stream: bool,
-}
-
-fn run_bridge(url: &str, headers: HashMap<String, String>, body: Value) -> Result<String, String> {
-    let req = BridgeRequest {
-        method: "POST".into(),
-        url: url.to_string(),
-        headers,
-        body,
-        stream: false,
-    };
-    let input = serde_json::to_string(&req).map_err(|e| format!("JSON: {}", e))?;
-
-    let mut child = Command::new(constants::NODE_PATH)
-        .arg(constants::bridge_path())
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-        .map_err(|e| format!("Spawn node: {}", e))?;
-
-    if let Some(mut stdin) = child.stdin.take() {
-        stdin.write_all(input.as_bytes()).map_err(|e| format!("stdin: {}", e))?;
-        stdin.flush().map_err(|e| format!("flush: {}", e))?;
-    }
-    // stdin dropped here — sends EOF to child, triggering process.stdin.on('end')
-
-    let stdout = child.stdout.take().ok_or_else(|| "No stdout".to_string())?;
-    let reader = BufReader::new(stdout);
-    let mut full_text = String::new();
-
-    for line in reader.lines() {
-        let line = line.map_err(|e| format!("Read: {}", e))?;
-        if line.is_empty() { continue; }
-        if let Ok(json) = serde_json::from_str::<Value>(&line) {
-            if let Some(err) = json.get("error").and_then(|v| v.as_str()) {
-                return Err(err.to_string());
-            }
-            if json.get("done").and_then(|v| v.as_bool()) == Some(true) {
-                break;
-            }
-            if let Some(chunk) = json.get("chunk").and_then(|v| v.as_str()) {
-                full_text.push_str(chunk);
-            }
-        }
-    }
-
-    let _ = child.wait();
-    Ok(full_text)
-}
 
 fn get_api_key(settings: &Value, path: &[&str]) -> Option<String> {
     let mut current = settings;
@@ -268,7 +209,7 @@ fn try_ollama_non_streaming(messages: &[Value], settings: &Value) -> Result<Stri
     });
     let url = format!("{}/api/chat", host.trim_end_matches('/'));
 
-    let raw = run_bridge(&url, HashMap::new(), body)?;
+    let raw = native_http::simple_post(&url, HashMap::new(), body)?;
 
     // Parse Ollama's JSON response to extract message.content
     if let Ok(json) = serde_json::from_str::<Value>(&raw) {
@@ -301,7 +242,7 @@ fn try_groq_non_streaming(messages: &[Value], settings: &Value) -> Result<String
     let mut headers = HashMap::new();
     headers.insert("Authorization".into(), format!("Bearer {}", api_key));
 
-    run_bridge("https://api.groq.com/openai/v1/chat/completions", headers, body)
+    native_http::simple_post("https://api.groq.com/openai/v1/chat/completions", headers, body)
 }
 
 fn try_openrouter_non_streaming(messages: &[Value], settings: &Value, variant: &str) -> Result<String, String> {
@@ -325,7 +266,7 @@ fn try_openrouter_non_streaming(messages: &[Value], settings: &Value, variant: &
     headers.insert("HTTP-Referer".into(), "https://orion.local".into());
     headers.insert("X-Title".into(), "ORION".into());
 
-    run_bridge("https://openrouter.ai/api/v1/chat/completions", headers, body)
+    native_http::simple_post("https://openrouter.ai/api/v1/chat/completions", headers, body)
 }
 
 fn try_gemini_non_streaming(messages: &[Value], settings: &Value) -> Result<String, String> {
@@ -359,7 +300,7 @@ fn try_gemini_non_streaming(messages: &[Value], settings: &Value) -> Result<Stri
         model, api_key
     );
 
-    run_bridge(&url, HashMap::new(), body)
+    native_http::simple_post(&url, HashMap::new(), body)
 }
 
 // ========================================

@@ -6,6 +6,7 @@ pub mod brain_router;
 pub mod constants;
 pub mod context_manager;
 pub mod goal_tracker;
+pub mod native_http;
 pub mod ollama_brain;
 pub mod personality_engine;
 pub mod suggestion_engine;
