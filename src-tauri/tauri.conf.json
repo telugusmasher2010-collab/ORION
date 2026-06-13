@@ -35,7 +35,6 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "../CORE/http-bridge.js": "CORE/http-bridge.js",
       "../CORE/systems_rules.md.txt": "CORE/systems_rules.md.txt",
       "../PROMPTS/master_prompt.md.txt": "PROMPTS/master_prompt.md.txt",
       "../PROMPTS/startup_prompt.md.txt": "PROMPTS/startup_prompt.md.txt",
