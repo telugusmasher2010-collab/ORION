@@ -53,9 +53,10 @@ pub fn chat(
 
     let result = match brain.brain.as_str() {
         "groq" => groq_request(&settings, &brain, &messages, app),
-        "openrouter-claude" | "openrouter-grok" => {
+        "openrouter" => {
             openrouter_request(&settings, &brain, &messages, app)
         }
+        "nvidia" => nvidia_request(&settings, &brain, &messages, app),
         "gemini" => gemini_request(&settings, &brain, &messages, app),
         "ollama" => ollama_request(&settings, &brain, &messages, app),
         _ => groq_request(&settings, &brain, &messages, app),
@@ -106,9 +107,8 @@ fn try_fallback(
 
     let fb_result = match fallback.brain.as_str() {
         "groq" => groq_request(settings, &fallback, messages, app),
-        "openrouter-claude" | "openrouter-grok" => {
-            openrouter_request(settings, &fallback, messages, app)
-        }
+        "openrouter" => openrouter_request(settings, &fallback, messages, app),
+        "nvidia" => nvidia_request(settings, &fallback, messages, app),
         "gemini" => gemini_request(settings, &fallback, messages, app),
         "ollama" => ollama_request(settings, &fallback, messages, app),
         _ => Err(format!("Fallback '{}' not impl", fallback.brain)),
@@ -326,20 +326,14 @@ fn openrouter_request(
     messages: &[Value],
     app: &tauri::AppHandle,
 ) -> Result<String, String> {
-    let key_field = if brain.brain == "openrouter-claude" {
-        "claudeKey"
-    } else {
-        "grokKey"
-    };
-
     let api_key = settings
         .get("openrouter")
-        .and_then(|o| o.get(key_field))
+        .and_then(|o| o.get("apiKey"))
         .and_then(|v| v.as_str())
-        .ok_or_else(|| format!("OpenRouter {} not found", key_field))?;
+        .ok_or_else(|| "OpenRouter API key not found".to_string())?;
 
-    if api_key.contains("PASTE") {
-        return Err(format!("OpenRouter {} not configured", key_field));
+    if api_key.is_empty() || api_key.contains("PASTE") {
+        return Err("OpenRouter API key not configured".to_string());
     }
 
     let body = serde_json::json!({
@@ -397,6 +391,100 @@ fn openrouter_request(
             if let Some(chunk) = json.get("chunk").and_then(|v| v.as_str()) {
                 full_text.push_str(chunk);
                 let _ = app.emit("chat_chunk", ChatChunkPayload { chunk: chunk.to_string() });
+            }
+        }
+    }
+
+    let _ = child.wait();
+    if full_text.is_empty() {
+        let err = capture_stderr(&mut child);
+        if !err.is_empty() {
+            return Err(format!("Bridge: {}", err));
+        }
+    }
+    Ok(full_text)
+}
+
+// ========================================
+// Nvidia NIM request (OpenAI-compatible)
+// ========================================
+
+fn nvidia_request(
+    settings: &Value,
+    brain: &BrainConfig,
+    messages: &[Value],
+    app: &tauri::AppHandle,
+) -> Result<String, String> {
+    let api_key = settings
+        .get("nvidia")
+        .and_then(|n| n.get("apiKey"))
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "Nvidia API key not found".to_string())?;
+
+    if api_key.is_empty() || api_key.contains("PASTE") {
+        return Err("Nvidia API key not configured".to_string());
+    }
+
+    let body = serde_json::json!({
+        "model": brain.model,
+        "messages": messages,
+        "stream": true,
+        "temperature": 0.7,
+        "max_tokens": 8192,
+    });
+
+    let mut headers = std::collections::HashMap::new();
+    headers.insert("Authorization".into(), format!("Bearer {}", api_key));
+
+    let url = "https://integrate.api.nvidia.com/v1/chat/completions".to_string();
+    let req = BridgeRequest {
+        method: "POST".into(),
+        url,
+        headers,
+        body,
+        stream: true,
+    };
+    let input = serde_json::to_string(&req).map_err(|e| format!("JSON: {}", e))?;
+
+    let mut child = Command::new(constants::NODE_PATH)
+        .arg(constants::bridge_path())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("Spawn node: {}", e))?;
+
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin
+            .write_all(input.as_bytes())
+            .map_err(|e| format!("stdin: {}", e))?;
+        let _ = stdin.flush();
+    }
+
+    let stdout = child.stdout.take().ok_or_else(|| "No stdout".to_string())?;
+    let reader = BufReader::new(stdout);
+    let mut full_text = String::new();
+
+    for line in reader.lines() {
+        let line = line.map_err(|e| format!("Read: {}", e))?;
+        if line.is_empty() {
+            continue;
+        }
+        if let Ok(json) = serde_json::from_str::<Value>(&line) {
+            if let Some(err) = json.get("error").and_then(|v| v.as_str()) {
+                return Err(err.to_string());
+            }
+            if json.get("done").and_then(|v| v.as_bool()) == Some(true) {
+                break;
+            }
+            if let Some(chunk) = json.get("chunk").and_then(|v| v.as_str()) {
+                full_text.push_str(chunk);
+                let _ = app.emit(
+                    "chat_chunk",
+                    ChatChunkPayload {
+                        chunk: chunk.to_string(),
+                    },
+                );
             }
         }
     }

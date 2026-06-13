@@ -88,10 +88,10 @@ impl BrainRouter {
             .unwrap_or(true);
 
         if self.is_internet_task(message) && internet_cloud {
-            if let Some(cfg) = self.try_openrouter_grok() {
+            if let Some(cfg) = self.try_openrouter() {
                 return cfg;
             }
-            if let Some(cfg) = self.try_openrouter_claude() {
+            if let Some(cfg) = self.try_nvidia() {
                 return cfg;
             }
         }
@@ -132,10 +132,10 @@ impl BrainRouter {
         if let Some(cfg) = self.try_groq() {
             return cfg;
         }
-        if let Some(cfg) = self.try_openrouter_claude() {
+        if let Some(cfg) = self.try_openrouter() {
             return cfg;
         }
-        if let Some(cfg) = self.try_openrouter_grok() {
+        if let Some(cfg) = self.try_nvidia() {
             return cfg;
         }
         if let Some(cfg) = self.try_gemini() {
@@ -155,7 +155,7 @@ impl BrainRouter {
             .get("groq")
             .and_then(|g| g.get("apiKey"))
             .and_then(|v| v.as_str())?;
-        if key.contains("PASTE") {
+        if key.contains("PASTE") || key.is_empty() {
             return None;
         }
         let model = self
@@ -172,48 +172,48 @@ impl BrainRouter {
         })
     }
 
-    fn try_openrouter_claude(&self) -> Option<BrainConfig> {
+    fn try_openrouter(&self) -> Option<BrainConfig> {
         let key = self
             .settings
             .get("openrouter")
-            .and_then(|o| o.get("claudeKey"))
+            .and_then(|o| o.get("apiKey"))
             .and_then(|v| v.as_str())?;
-        if key.contains("PASTE") {
+        if key.contains("PASTE") || key.is_empty() {
             return None;
         }
         let model = self
             .settings
             .get("openrouter")
-            .and_then(|o| o.get("claudeModel"))
+            .and_then(|o| o.get("model"))
             .and_then(|v| v.as_str())
-            .unwrap_or("anthropic/claude-3.5-sonnet");
+            .unwrap_or("openrouter/free");
         Some(BrainConfig {
-            brain: "openrouter-claude".into(),
+            brain: "openrouter".into(),
             model: model.to_string(),
-            label: "🧠 Claude".into(),
+            label: "🆓 OpenRouter Free".into(),
             source: "cloud".into(),
         })
     }
 
-    fn try_openrouter_grok(&self) -> Option<BrainConfig> {
+    fn try_nvidia(&self) -> Option<BrainConfig> {
         let key = self
             .settings
-            .get("openrouter")
-            .and_then(|o| o.get("grokKey"))
+            .get("nvidia")
+            .and_then(|n| n.get("apiKey"))
             .and_then(|v| v.as_str())?;
-        if key.contains("PASTE") {
+        if key.contains("PASTE") || key.is_empty() {
             return None;
         }
         let model = self
             .settings
-            .get("openrouter")
-            .and_then(|o| o.get("grokModel"))
+            .get("nvidia")
+            .and_then(|n| n.get("model"))
             .and_then(|v| v.as_str())
-            .unwrap_or("xai/grok-2");
+            .unwrap_or("nvidia/nemotron-3-super-120b-a12b");
         Some(BrainConfig {
-            brain: "openrouter-grok".into(),
+            brain: "nvidia".into(),
             model: model.to_string(),
-            label: "🔍 Grok".into(),
+            label: "🟢 Nvidia NIM".into(),
             source: "cloud".into(),
         })
     }
@@ -224,7 +224,7 @@ impl BrainRouter {
             .get("gemini")
             .and_then(|g| g.get("apiKey"))
             .and_then(|v| v.as_str())?;
-        if key.contains("PASTE") {
+        if key.contains("PASTE") || key.is_empty() {
             return None;
         }
         let model = self
